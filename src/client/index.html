@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Classic Snake</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { 
+      display: flex; 
+      justify-content: center; 
+      align-items: center; 
+      min-height: 100vh; 
+      background: #1a1a1a; 
+      font-family: monospace;
+      color: #fff;
+    }
+    #container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 20px;
+    }
+    #canvas {
+      border: 2px solid #0f0;
+      background: #000;
+      display: block;
+    }
+    #info {
+      text-align: center;
+      font-size: 16px;
+    }
+    #score { color: #0f0; }
+    #status { 
+      height: 24px;
+      color: #f00;
+      font-weight: bold;
+    }
+    button {
+      padding: 10px 20px;
+      background: #0f0;
+      color: #000;
+      border: none;
+      font-family: monospace;
+      font-weight: bold;
+      cursor: pointer;
+      font-size: 14px;
+    }
+    button:hover { background: #0a0; }
+  </style>
+</head>
+<body>
+  <div id="container">
+    <h1>🐍 Classic Snake</h1>
+    <canvas id="canvas" width="400" height="400"></canvas>
+    <div id="info">
+      <div id="score">Score: 0</div>
+      <div id="status"></div>
+    </div>
+    <button id="newGameBtn">New Game</button>
+  </div>
+  <script src="client.js"></script>
+</body>
+</html>
