@@ -1,37 +1,38 @@
 # Copilot Instructions for Classic Snake Online
 
+First of all, don't write verbose markdown files. Keep it short and to the point.
+Only provide instructions on how to quickly run the project locally.
+Don't explain anything that an experienced developer can figure out on his own.
+
 ## Architecture Overview
 
-This is a **minimalist WebSocket-based Snake game** following **MIT 6.102 principles**: immutable Abstract Data Types (ADT), invariant checking, and formal specifications.
+This is a **minimalist browser-based Snake game** following **MIT 6.102 principles**: immutable Abstract Data Types (ADT), invariant checking, and formal specifications.
 
 ### Three-Layer Architecture
 
-1. **SnakeGame ADT** (`src/server/snake.ts`, 358 lines)
+1. **SnakeGame ADT** (`src/snake.ts`)
    - Immutable, self-contained game logic
    - All state changes return new instances
-   - 9 invariants checked by `checkRep()` after every operation
+   - 10 invariants checked by `checkRep()` after every operation
    - No side effects; pure functional design
 
-2. **Commands** (`src/server/commands.ts`, 30 lines)
-   - Thin 1-line wrappers: `handleTick()`, `handleDirectionInput()`, `handleNewGame()`
-   - Server **always** calls commands, never ADT methods directly
+2. **Commands** (`src/commands.ts`)
+   - Thin 1-line wrappers: `tick()`, `queueDirection()`, `newGame()`, `restart()`, `start()`
+   - Main **always** calls commands, never ADT methods directly
    - Enables logging, validation, and future middleware
 
-3. **WebSocket Server** (`src/server/server.ts`, 110 lines)
-   - HTTP server for static assets + WebSocket for game sync
-   - Per-connection `GameConnection` with 100ms tick intervals
-   - JSON protocol: direction input → gameState output
+3. **Main Loop** (`src/main.ts`)
+   - Canvas rendering and game loop
+   - Keyboard input handling
+   - **Only calls command functions, never SnakeGame methods directly**
 
-### Client Layer
+### Test Layer
 
-- **Vanilla JS** (`src/client/client.js`): keyboard handling, rendering, WebSocket communication
-- **HTML** (`src/client/index.html`): 400×400 canvas, score display, minimal styling
-- **Zero frontend dependencies** by design
+- **Unit tests** (`test/snake.test.ts`): 37 tests covering all public methods and invariants
 
 ---
 
 ## Critical Patterns
-
 
 ### Invariant Checking
 
@@ -40,15 +41,17 @@ Every SnakeGame operation ends with `checkRep()` validation:
 
 ### Command-Only Access Pattern
 
-**Server.ts rule**: All game changes go through commands, not direct method calls.
+**main.ts rule**: All game changes go through commands, not direct method calls.
 
 ```typescript
-// ✅ In server.ts, use commands:
-conn.game = handleTick(conn.game);
-conn.game = handleDirectionInput(conn.game, direction);
+// ✅ In main.ts, use commands:
+game = tick(game);
+game = queueDirection(game, direction);
+const state = getState(game);
 
-// ❌ Never bypass commands in server logic:
-conn.game = conn.game.tick();  // Avoid this in server!
+// ❌ Never bypass commands in main.ts:
+game = game.tick();  // Avoid this!
+const state = game.serialize();  // Avoid this!
 ```
 
 ---
@@ -58,19 +61,16 @@ conn.game = conn.game.tick();  // Avoid this in server!
 ```bash
 npm install                # First time only
 npm run build             # TypeScript → dist/
-npm start                 # Run on PORT (default 8080)
-PORT=3000 npm start       # Custom port
+python3 -m http.server 8080  # Serve from root
 
-# Development (auto-rebuild):
-npm run dev
+# Run tests:
+npm test
 ```
 
 ### TypeScript Configuration
 - **Target/Module**: ES2020 (modern modules with `import`/`export`)
 - **Strict mode**: enabled
-- **Import extensions**: **Must include `.js`** in server files (`import ... from './snake.js'`)
-- Client files (`.js`) are served as-is; no TypeScript compilation
-
+- **Import extensions**: **Must include `.js`** in imports (`import ... from './snake.js'`)
 
 ## Extending the Codebase
 
@@ -86,11 +86,12 @@ npm run dev
 2. **Update Commands** (`commands.ts`):
    - No changes needed (commands just wrap ADT methods)
 
-3. **Update Server** (`server.ts`):
-   - No changes needed (server already broadcasts serialized state)
+3. **Update Main** (`main.ts`):
+   - Update rendering to draw obstacles
+   - Use command functions only
 
-4. **Update Client** (`client.js`):
-   - Add rendering loop to draw obstacles
+4. **Update Tests** (`test/snake.test.ts`):
+   - Add tests for obstacle-related functionality
 
 
 ## Code Style & Conventions

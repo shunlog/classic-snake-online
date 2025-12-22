@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Classic Snake</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: #fafafa;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            text-align: center;
+        }
+
+        h1 {
+            font-size: 2rem;
+            font-weight: 300;
+            color: #333;
+            margin-bottom: 20px;
+            letter-spacing: 2px;
+        }
+
+        .game-wrapper {
+            position: relative;
+            display: inline-block;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+            padding: 20px;
+        }
+
+        #gameCanvas {
+            display: block;
+            border: 2px solid #333;
+            border-radius: 4px;
+        }
+
+        .info {
+            display: flex;
+            justify-content: space-between;
+            gap: 40px;
+            margin-top: 20px;
+            font-size: 1.1rem;
+            color: #666;
+        }
+
+        #status {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(255, 255, 255, 0.95);
+            padding: 20px 40px;
+            border-radius: 8px;
+            font-size: 1.2rem;
+            color: #333;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+            pointer-events: none;
+            font-weight: 400;
+        }
+
+        .controls {
+            margin-top: 20px;
+            font-size: 0.9rem;
+            color: #999;
+        }
+
+        .controls p {
+            margin: 5px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>CLASSIC SNAKE</h1>
+        <div class="game-wrapper">
+            <canvas id="gameCanvas"></canvas>
+            <div id="status">Press SPACE to start</div>
+        </div>
+        <div class="info">
+            <div id="score">Score: 0</div>
+            <div id="time">Time: 0s</div>
+        </div>
+        <div class="controls">
+            <p>Arrow Keys or WASD to move</p>
+            <p>SPACE to start/restart</p>
+        </div>
+    </div>
+
+    <script type="module" src="dist/main.js"></script>
+</body>
+</html>

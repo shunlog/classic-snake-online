@@ -1,37 +1,19 @@
-# Classic Snake - Online Multiplayer Ready
+# Classic Snake
 
-A minimalist classic Snake game built with TypeScript, running in a browser with a WebSocket backend server architecture. Designed with best practices from MIT 6.102 course for future multiplayer expansion.
-
+Classic Snake game with TypeScript and ADT design.
 
 ## Quick Start
 
 ```bash
-# Install dependencies
 npm install
-
-# Build (TypeScript → JavaScript)
 npm run build
-
-# Run the server
-npm start
-
-# Open browser to http://localhost:8080
+python3 -m http.server 8080
 ```
 
-### Environment Variables
+Open http://localhost:8080
+
+## Run Tests
 
 ```bash
-PORT=8080  # Server port (default)
-```
-
-Example:
-```bash
-PORT=3000 npm start
-```
-
-## Development
-
-```bash
-# One-command build and run
-npm run dev
+npm test
 ```
