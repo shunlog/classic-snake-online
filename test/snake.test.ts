@@ -88,7 +88,69 @@ describe('SnakeGame ADT', () => {
         });
     });
 
-    describe('queueDirection', () => {
+    describe('canQueueDirection', () => {
+        test('returns true for valid direction when first slot empty', () => {
+            const game = SnakeGame.create().start(); // starts with RIGHT
+            expect(game.canQueueDirection('UP')).toBe(true);
+            expect(game.canQueueDirection('DOWN')).toBe(true);
+        });
+
+        test('returns false for opposite direction', () => {
+            const game = SnakeGame.create().start(); // starts with RIGHT
+            expect(game.canQueueDirection('LEFT')).toBe(false);
+        });
+
+        test('returns false for duplicate of current direction', () => {
+            const game = SnakeGame.create().start(); // starts with RIGHT
+            expect(game.canQueueDirection('RIGHT')).toBe(false);
+        });
+
+        test('returns true for valid second direction', () => {
+            const game = SnakeGame.create().start()
+                .queueDirection('UP'); // first slot has UP
+            expect(game.canQueueDirection('LEFT')).toBe(true);
+            expect(game.canQueueDirection('RIGHT')).toBe(true);
+        });
+
+        test('returns false for opposite of first queued direction', () => {
+            const game = SnakeGame.create().start()
+                .queueDirection('UP'); // first slot has UP
+            expect(game.canQueueDirection('DOWN')).toBe(false);
+        });
+
+        test('returns false for duplicate of first queued direction', () => {
+            const game = SnakeGame.create().start()
+                .queueDirection('UP'); // first slot has UP
+            expect(game.canQueueDirection('UP')).toBe(false);
+        });
+
+        test('returns false when both slots full', () => {
+            const game = SnakeGame.create().start()
+                .queueDirection('UP')
+                .queueDirection('LEFT');
+            expect(game.canQueueDirection('DOWN')).toBe(false);
+            expect(game.canQueueDirection('RIGHT')).toBe(false);
+        });
+
+        test('returns false when game not started', () => {
+            const game = SnakeGame.create(); // NOT_STARTED
+            expect(game.canQueueDirection('UP')).toBe(false);
+        });
+
+        test('returns false when game over', () => {
+            const game = SnakeGame.create(3, 3).start();
+            const updated = game.queueDirection('LEFT');
+            let gameState = updated;
+            for (let i = 0; i < 5; i++) {
+                gameState = gameState.tick();
+            }
+
+            expect(gameState.getStatus()).toBe('GAME_OVER');
+            expect(gameState.canQueueDirection('UP')).toBe(false);
+        });
+    });
+
+    describe('queueDirection, assuming canQueueDirection', () => {
         test('queues first direction', () => {
             const game = SnakeGame.create().start();
             const updated = game.queueDirection('UP');
@@ -117,55 +179,6 @@ describe('SnakeGame ADT', () => {
 
             expect(state.queuedDir1).toBe('UP');
             expect(state.queuedDir2).toBe('LEFT');
-        });
-
-        test('ignores opposite direction', () => {
-            const game = SnakeGame.create().start(); // starts with RIGHT
-            const updated = game.queueDirection('LEFT');
-            const state = updated.serialize();
-
-            expect(state.queuedDir1).toBeNull();
-        });
-
-        test('ignores duplicate direction', () => {
-            const game = SnakeGame.create().start(); // starts with RIGHT
-            const updated = game.queueDirection('RIGHT');
-            const state = updated.serialize();
-
-            expect(state.queuedDir1).toBeNull();
-        });
-
-        test('ignores duplicate direction after first change', () => {
-            const game = SnakeGame.create().start(); // starts with RIGHT
-            const updated = game.queueDirection('UP')
-                .queueDirection('UP')
-                .queueDirection('LEFT');
-            const state = updated.serialize();
-
-            expect(state.queuedDir1).toBe('UP');
-            expect(state.queuedDir2).toBe('LEFT');
-        });
-
-        test('does not queue when game not started', () => {
-            const game = SnakeGame.create();
-            const updated = game.queueDirection('UP');
-            const state = updated.serialize();
-
-            expect(state.queuedDir1).toBeNull();
-        });
-
-        test('does not queue when game over', () => {
-            const game = SnakeGame.create(3, 3).start();
-            const updated = game.queueDirection('LEFT');
-            let gameState = updated;
-            for (let i = 0; i < 5; i++) {
-                gameState = gameState.tick();
-            }
-
-            expect(gameState.getStatus()).toBe('GAME_OVER');
-
-            const afterQueue = gameState.queueDirection('UP');
-            expect(afterQueue.serialize().queuedDir1).toBeNull();
         });
     });
 

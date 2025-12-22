@@ -216,6 +216,43 @@ export class SnakeGame {
     }
 
     /**
+     * Check if a direction can be queued
+     * 
+     * @param newDirection - Direction to check
+     * @returns true if the direction can be queued, false otherwise
+     * 
+     * A direction can be queued if:
+     * - Game is in PLAYING state
+     * - At least one queue slot is available
+     * - Direction is not opposite to the last effective direction
+     * - Direction is not a duplicate of the last effective direction
+     */
+    public canQueueDirection(newDirection: Direction): boolean {
+        if (this.status !== 'PLAYING') {
+            return false;
+        }
+
+        if (this.queuedDir2 !== null) {
+            // Both slots full
+            return false;
+        } else if (this.queuedDir2 === null && this.queuedDir1 !== null) {
+            // Second slot empty - check against first queued direction
+            if (this.isOpposite(newDirection, this.queuedDir1)
+                || newDirection === this.queuedDir1) {
+                return false;
+            }
+            return true;
+        } else {
+            // First slot empty - check against current direction
+            if (this.isOpposite(newDirection, this.direction)
+                || newDirection === this.direction) {
+                return false;
+            }
+            return true;
+        }
+    }
+
+    /**
      * Queue a direction change
      * 
      * @param newDirection - Direction to queue
@@ -227,29 +264,18 @@ export class SnakeGame {
      * - Prevents consecutive duplicates
      */
     public queueDirection(newDirection: Direction): SnakeGame {
-        if (this.status !== 'PLAYING') {
+        if (!this.canQueueDirection(newDirection)) {
             return this;
         }
 
-        if (this.queuedDir2 !== null) {
-            // Both slots full
-            return this;
-        } else if (this.queuedDir2 === null && this.queuedDir1 !== null) {
+        if (this.queuedDir2 === null && this.queuedDir1 !== null) {
             // Second slot empty
-            if (this.isOpposite(newDirection, this.queuedDir1)
-                || newDirection === this.queuedDir1) {
-                return this;
-            }
             return new SnakeGame({
                 ...this.serialize(),
                 queuedDir2: newDirection
             });
         } else {
             // First slot empty
-            if (this.isOpposite(newDirection, this.direction)
-                || newDirection === this.direction) {
-                return this;
-            }
             return new SnakeGame({
                 ...this.serialize(),
                 queuedDir1: newDirection

@@ -27,6 +27,17 @@ export function tick(game: SnakeGame): SnakeGame {
 }
 
 /**
+ * Check if a direction can be queued
+ * 
+ * @param game - Current game instance
+ * @param direction - Direction to check
+ * @returns true if direction can be queued, false otherwise
+ */
+export function canQueueDirection(game: SnakeGame, direction: Direction): boolean {
+    return game.canQueueDirection(direction);
+}
+
+/**
  * Queue a direction change
  * 
  * @param game - Current game instance
