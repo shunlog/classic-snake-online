@@ -14,7 +14,6 @@ import { SnakeGame, Direction, GameState } from './snake.js';
 import {
     tick,
     queueDirection,
-    canQueueDirection,
     newGame,
     restart,
     start,
@@ -28,11 +27,26 @@ const CANVAS_HEIGHT = 400;
 const CELL_SIZE = 20;
 const GRID_WIDTH = CANVAS_WIDTH / CELL_SIZE;  // 20
 const GRID_HEIGHT = CANVAS_HEIGHT / CELL_SIZE; // 20
-const TICK_INTERVAL = 150; // milliseconds
+
+// There are three timings:
+// 1. Physics ticks (fixed rate)
+// 2. Snake ticks (the rate at which the snake moves)
+// 3. Render ticks (based on frame rate, provided by getAnimationFrame)
+
+// Physics ticks have to happen at a fixed rate for consistent gameplay.
+// The browser API requestAnimationFrame gives us the time since last frame update,
+// so we make sure to call the update function multiple times if needed to catch up.
+
+// Fixed timestep constants
+const PHYSICS_TICK = 1 / 60; // 60 Hz (in seconds)
+const SNAKE_TICK = 10 * PHYSICS_TICK; // Convert to seconds
+
+let physicsTimeAcc = 0;  // seconds, accumulated since last physics update
+let lastFrameTime = performance.now() / 1000;
+let tickTimeAcc = 0;  // seconds, accumulated since last snake tick
 
 // Game state
 let game: SnakeGame = newGame(GRID_WIDTH, GRID_HEIGHT);
-let lastTickTime = 0;
 
 // FPS tracking
 let fpsFrames = 0;
@@ -69,8 +83,7 @@ function setupInputHandlers(): void {
             if (status === 'NOT_STARTED') {
                 game = start(game);
             } else if (status === 'GAME_OVER') {
-                game = restart(game);
-                game = start(game);
+                restartGame();
             }
             return;
         }
@@ -112,27 +125,56 @@ function setupInputHandlers(): void {
 }
 
 /**
- * Main game loop
+ * Reset the game and timing state
  */
-function gameLoop(timestamp: number): void {
-    // Handle game ticks
-    if (getStatus(game) === 'PLAYING') {
-        const elapsed = timestamp - lastTickTime;
+function restartGame(): void {
+    game = restart(game);
+    game = start(game);
+    tickTimeAcc = 0;
+}
 
-        if (elapsed >= TICK_INTERVAL) {
+/**
+ * Update game state (called with fixed timestep)
+ */
+function update(dt: number): void {
+    // Accumulate time for game ticks
+    tickTimeAcc += dt;
+
+    // Handle game ticks at TICK_INTERVAL rate
+    if (getStatus(game) === 'PLAYING') {
+        if (tickTimeAcc >= SNAKE_TICK) {
             game = tick(game);
-            lastTickTime = timestamp;
+            tickTimeAcc -= SNAKE_TICK;
         }
     }
+}
 
-    const now = performance.now();
+/**
+ * Main game loop with fixed timestep
+ */
+function gameLoop(nowMs: number): void {
+    const now = nowMs / 1000; // Convert to seconds
+    let frameTime = now - lastFrameTime;
+    lastFrameTime = now;
+
+    // Avoid spiral of death (cap at 250ms)
+    frameTime = Math.min(frameTime, 0.25);
+
+    physicsTimeAcc += frameTime;
+
+    // Update with fixed timestep
+    while (physicsTimeAcc >= PHYSICS_TICK) {
+        update(PHYSICS_TICK);
+        physicsTimeAcc -= PHYSICS_TICK;
+    }
+
     // Calculate FPS
     fpsFrames++;
-    const fpsElapsed = now - fpsLastTime;
+    const fpsElapsed = performance.now() - fpsLastTime;
     if (fpsElapsed >= 1000) { // Update FPS every second
         currentFPS = Math.round((fpsFrames * 1000) / fpsElapsed);
         fpsFrames = 0;
-        fpsLastTime = now;
+        fpsLastTime = performance.now();
     }
 
     // Render
