@@ -34,7 +34,8 @@ export interface GameState {
     readonly snake: ReadonlyArray<Position>;
     readonly food: Position;
     readonly direction: Direction;
-    readonly inputQueue: ReadonlyArray<Direction>;
+    readonly queuedDir1: Direction | null;
+    readonly queuedDir2: Direction | null;
     readonly status: GameStatus;
     readonly score: number;
     readonly gridWidth: number;
@@ -47,12 +48,12 @@ export interface GameState {
  * SnakeGame ADT - Immutable representation of Snake game logic
  * 
  * Abstraction Function:
- *   AF(snake, food, direction, inputQueue, status, score, gridWidth, gridHeight, startTime, elapsedTime) = 
+ *   AF(snake, food, direction, queuedDir1, queuedDir2, status, score, gridWidth, gridHeight, startTime, elapsedTime) = 
  *     A Snake game where:
  *     - The snake occupies positions snake[0] (head), snake[1], ..., snake[n-1] (tail)
  *     - Food is located at position 'food'
  *     - Current movement direction is 'direction'
- *     - Pending direction changes are queued in 'inputQueue'
+ *     - Next direction changes are queuedDir1, then queuedDir2 (if non-null)
  *     - Game state is 'status' (NOT_STARTED, PLAYING, or GAME_OVER)
  *     - Player score is 'score' (initially 0, +10 per food eaten)
  *     - Grid dimensions are gridWidth × gridHeight
@@ -65,8 +66,8 @@ export interface GameState {
  *   4. Food is not on any snake segment
  *   5. Grid dimensions are positive
  *   6. Score is non-negative
- *   7. Input queue has at most 2 pending directions
- *   8. No consecutive duplicate directions in inputQueue
+ *   7. If queuedDir2 is set, queuedDir1 must also be set
+ *   8. queuedDir1 (if set) is different from queuedDir2 (if set)
  *   9. Elapsed time is non-negative
  *  10. No snake segment overlaps with another (except during growth)
  */
@@ -74,7 +75,8 @@ export class SnakeGame {
     private readonly snake: ReadonlyArray<Position>;
     private readonly food: Position;
     private readonly direction: Direction;
-    private readonly inputQueue: ReadonlyArray<Direction>;
+    private readonly queuedDir1: Direction | null;
+    private readonly queuedDir2: Direction | null;
     private readonly status: GameStatus;
     private readonly score: number;
     private readonly gridWidth: number;
@@ -89,7 +91,8 @@ export class SnakeGame {
         this.snake = state.snake;
         this.food = state.food;
         this.direction = state.direction;
-        this.inputQueue = state.inputQueue;
+        this.queuedDir1 = state.queuedDir1;
+        this.queuedDir2 = state.queuedDir2;
         this.status = state.status;
         this.score = state.score;
         this.gridWidth = state.gridWidth;
@@ -117,7 +120,7 @@ export class SnakeGame {
         }
 
         // Invariant 3: Food position is within grid bounds
-        if (this.food.x < 0 || this.food.x >= this.gridWidth || 
+        if (this.food.x < 0 || this.food.x >= this.gridWidth ||
             this.food.y < 0 || this.food.y >= this.gridHeight) {
             throw new Error(`Invariant violation: food position (${this.food.x}, ${this.food.y}) out of bounds`);
         }
@@ -139,16 +142,14 @@ export class SnakeGame {
             throw new Error('Invariant violation: score cannot be negative');
         }
 
-        // Invariant 7: Input queue has at most 2 pending directions
-        if (this.inputQueue.length > 2) {
-            throw new Error('Invariant violation: input queue cannot exceed 2 directions');
+        // Invariant 7: If queuedDir2 is set, queuedDir1 must also be set
+        if (this.queuedDir2 !== null && this.queuedDir1 === null) {
+            throw new Error('Invariant violation: queuedDir2 cannot be set if queuedDir1 is null');
         }
 
-        // Invariant 8: No consecutive duplicate directions in inputQueue
-        for (let i = 0; i < this.inputQueue.length - 1; i++) {
-            if (this.inputQueue[i] === this.inputQueue[i + 1]) {
-                throw new Error('Invariant violation: no consecutive duplicate directions in queue');
-            }
+        // Invariant 8: queuedDir1 (if set) is different from queuedDir2 (if set)
+        if (this.queuedDir1 !== null && this.queuedDir1 === this.queuedDir2) {
+            throw new Error('Invariant violation: queuedDir1 and queuedDir2 cannot be the same');
         }
 
         // Invariant 9: Elapsed time is non-negative
@@ -177,7 +178,7 @@ export class SnakeGame {
     public static create(gridWidth: number = 20, gridHeight: number = 20): SnakeGame {
         const centerX = Math.floor(gridWidth / 2);
         const centerY = Math.floor(gridHeight / 2);
-        
+
         const initialSnake: Position[] = [{ x: centerX, y: centerY }];
         const food = SnakeGame.generateFood(initialSnake, gridWidth, gridHeight);
 
@@ -185,7 +186,8 @@ export class SnakeGame {
             snake: initialSnake,
             food,
             direction: 'RIGHT',
-            inputQueue: [],
+            queuedDir1: null,
+            queuedDir2: null,
             status: 'NOT_STARTED',
             score: 0,
             gridWidth,
@@ -221,7 +223,7 @@ export class SnakeGame {
      * 
      * Effects: 
      * - Ignores invalid directions (opposite of current or last queued)
-     * - Ignores if queue is full (2 items)
+     * - Ignores if both queue slots are full
      * - Prevents consecutive duplicates
      */
     public queueDirection(newDirection: Direction): SnakeGame {
@@ -229,30 +231,30 @@ export class SnakeGame {
             return this;
         }
 
-        // Queue is full
-        if (this.inputQueue.length >= 2) {
+        if (this.queuedDir2 !== null) {
+            // Both slots full
             return this;
+        } else if (this.queuedDir2 === null && this.queuedDir1 !== null) {
+            // Second slot empty
+            if (this.isOpposite(newDirection, this.queuedDir1)
+                || newDirection === this.queuedDir1) {
+                return this;
+            }
+            return new SnakeGame({
+                ...this.serialize(),
+                queuedDir2: newDirection
+            });
+        } else {
+            // First slot empty
+            if (this.isOpposite(newDirection, this.direction)
+                || newDirection === this.direction) {
+                return this;
+            }
+            return new SnakeGame({
+                ...this.serialize(),
+                queuedDir1: newDirection
+            });
         }
-
-        // Determine the last effective direction
-        const lastDirection = this.inputQueue.length > 0 
-            ? this.inputQueue[this.inputQueue.length - 1] 
-            : this.direction;
-
-        // Ignore opposite direction
-        if (this.isOpposite(newDirection, lastDirection)) {
-            return this;
-        }
-
-        // Ignore duplicate
-        if (newDirection === lastDirection) {
-            return this;
-        }
-
-        return new SnakeGame({
-            ...this.serialize(),
-            inputQueue: [...this.inputQueue, newDirection]
-        });
     }
 
     /**
@@ -261,7 +263,7 @@ export class SnakeGame {
      * @returns A new SnakeGame instance after one game tick
      * 
      * Effects:
-     * - Processes one direction from input queue (if any)
+     * - Processes one direction from queue (if any)
      * - Moves snake one cell in current direction
      * - Checks for food consumption (grows snake, updates score)
      * - Checks for collisions (sets GAME_OVER)
@@ -272,13 +274,15 @@ export class SnakeGame {
             return this;
         }
 
-        // Process input queue
+        // Process queued direction
         let newDirection = this.direction;
-        let newQueue = this.inputQueue;
-        
-        if (this.inputQueue.length > 0) {
-            newDirection = this.inputQueue[0];
-            newQueue = this.inputQueue.slice(1);
+        let newQueuedDir1 = this.queuedDir1;
+        let newQueuedDir2 = this.queuedDir2;
+
+        if (this.queuedDir1 !== null) {
+            newDirection = this.queuedDir1;
+            newQueuedDir1 = this.queuedDir2;
+            newQueuedDir2 = null;
         }
 
         // Calculate new head position
@@ -286,13 +290,14 @@ export class SnakeGame {
         const newHead = this.getNextPosition(head, newDirection);
 
         // Check wall collision
-        if (newHead.x < 0 || newHead.x >= this.gridWidth || 
+        if (newHead.x < 0 || newHead.x >= this.gridWidth ||
             newHead.y < 0 || newHead.y >= this.gridHeight) {
             return new SnakeGame({
                 ...this.serialize(),
                 status: 'GAME_OVER',
                 direction: newDirection,
-                inputQueue: newQueue
+                queuedDir1: newQueuedDir1,
+                queuedDir2: newQueuedDir2
             });
         }
 
@@ -303,14 +308,15 @@ export class SnakeGame {
                     ...this.serialize(),
                     status: 'GAME_OVER',
                     direction: newDirection,
-                    inputQueue: newQueue
+                    queuedDir1: newQueuedDir1,
+                    queuedDir2: newQueuedDir2
                 });
             }
         }
 
         // Check food consumption
         const ateFood = newHead.x === this.food.x && newHead.y === this.food.y;
-        
+
         let newSnake: Position[];
         let newFood = this.food;
         let newScore = this.score;
@@ -332,7 +338,8 @@ export class SnakeGame {
             snake: newSnake,
             food: newFood,
             direction: newDirection,
-            inputQueue: newQueue,
+            queuedDir1: newQueuedDir1,
+            queuedDir2: newQueuedDir2,
             status: 'PLAYING',
             score: newScore,
             gridWidth: this.gridWidth,
@@ -388,7 +395,8 @@ export class SnakeGame {
             snake: this.snake,
             food: this.food,
             direction: this.direction,
-            inputQueue: this.inputQueue,
+            queuedDir1: this.queuedDir1,
+            queuedDir2: this.queuedDir2,
             status: this.status,
             score: this.score,
             gridWidth: this.gridWidth,
@@ -403,9 +411,9 @@ export class SnakeGame {
      */
     private isOpposite(dir1: Direction, dir2: Direction): boolean {
         return (dir1 === 'UP' && dir2 === 'DOWN') ||
-               (dir1 === 'DOWN' && dir2 === 'UP') ||
-               (dir1 === 'LEFT' && dir2 === 'RIGHT') ||
-               (dir1 === 'RIGHT' && dir2 === 'LEFT');
+            (dir1 === 'DOWN' && dir2 === 'UP') ||
+            (dir1 === 'LEFT' && dir2 === 'RIGHT') ||
+            (dir1 === 'RIGHT' && dir2 === 'LEFT');
     }
 
     /**
@@ -429,7 +437,7 @@ export class SnakeGame {
      */
     private static generateFood(snake: ReadonlyArray<Position>, gridWidth: number, gridHeight: number): Position {
         const occupied = new Set(snake.map(pos => `${pos.x},${pos.y}`));
-        
+
         let food: Position;
         do {
             food = {
