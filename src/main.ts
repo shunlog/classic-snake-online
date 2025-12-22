@@ -11,11 +11,12 @@
  */
 
 import { SnakeGame, Direction, GameState } from './snake.js';
-import { 
-    tick, 
-    queueDirection, 
-    newGame, 
-    restart, 
+import {
+    tick,
+    queueDirection,
+    canQueueDirection,
+    newGame,
+    restart,
     start,
     getState,
     getStatus
@@ -32,6 +33,11 @@ const TICK_INTERVAL = 150; // milliseconds
 // Game state
 let game: SnakeGame = newGame(GRID_WIDTH, GRID_HEIGHT);
 let lastTickTime = 0;
+
+// FPS tracking
+let fpsFrames = 0;
+let fpsLastTime = performance.now();
+let currentFPS = 60;
 
 /**
  * Initialize the game
@@ -59,7 +65,7 @@ function setupInputHandlers(): void {
         if (event.code === 'Space') {
             event.preventDefault();
             const status = getStatus(game);
-            
+
             if (status === 'NOT_STARTED') {
                 game = start(game);
             } else if (status === 'GAME_OVER') {
@@ -75,7 +81,7 @@ function setupInputHandlers(): void {
         }
 
         let direction: Direction | null = null;
-        
+
         switch (event.code) {
             case 'ArrowUp':
             case 'KeyW':
@@ -112,11 +118,21 @@ function gameLoop(timestamp: number): void {
     // Handle game ticks
     if (getStatus(game) === 'PLAYING') {
         const elapsed = timestamp - lastTickTime;
-        
+
         if (elapsed >= TICK_INTERVAL) {
             game = tick(game);
             lastTickTime = timestamp;
         }
+    }
+
+    const now = performance.now();
+    // Calculate FPS
+    fpsFrames++;
+    const fpsElapsed = now - fpsLastTime;
+    if (fpsElapsed >= 1000) { // Update FPS every second
+        currentFPS = Math.round((fpsFrames * 1000) / fpsElapsed);
+        fpsFrames = 0;
+        fpsLastTime = now;
     }
 
     // Render
@@ -188,6 +204,20 @@ function render(): void {
     if (timeElement) {
         const seconds = Math.floor(state.elapsedTime / 1000);
         timeElement.textContent = `Time: ${seconds}s`;
+    }
+
+    // Update FPS display
+    const fpsElement = document.getElementById('fps');
+    if (fpsElement) {
+        fpsElement.textContent = `FPS: ${currentFPS}`;
+        // Color code: green if good, yellow if medium, red if bad
+        if (currentFPS >= 55) {
+            fpsElement.style.color = '#4a7c2c';
+        } else if (currentFPS >= 30) {
+            fpsElement.style.color = '#ff8800';
+        } else {
+            fpsElement.style.color = '#ff4444';
+        }
     }
 
     // Update status display
