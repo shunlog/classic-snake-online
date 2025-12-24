@@ -199,7 +199,7 @@ function _draw(): void {
     const fpsElement = document.getElementById('fps');
     if (fpsElement) {
         const fps = gameLoop.fps;
-        fpsElement.textContent = `FPS: ${fps}`;
+        fpsElement.textContent = `FPS: ${fps} | Ticks: ${state.tickCount}`;
         // Color code: green if good, yellow if medium, red if bad
         if (fps >= 55) {
             fpsElement.style.color = '#4a7c2c';

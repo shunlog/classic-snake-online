@@ -42,6 +42,7 @@ export interface GameState {
     readonly gridHeight: number;
     readonly startTime: number;
     readonly elapsedTime: number;
+    readonly tickCount: number;
 }
 
 /**
@@ -83,6 +84,7 @@ export class SnakeGame {
     private readonly gridHeight: number;
     private readonly startTime: number;
     private readonly elapsedTime: number;
+    private readonly tickCount: number;
 
     /**
      * Private constructor - use static factory methods to create instances
@@ -99,6 +101,7 @@ export class SnakeGame {
         this.gridHeight = state.gridHeight;
         this.startTime = state.startTime;
         this.elapsedTime = state.elapsedTime;
+        this.tickCount = state.tickCount;
         this.checkRep();
     }
 
@@ -193,7 +196,8 @@ export class SnakeGame {
             gridWidth,
             gridHeight,
             startTime: 0,
-            elapsedTime: 0
+            elapsedTime: 0,
+            tickCount: 0
         });
     }
 
@@ -371,7 +375,8 @@ export class SnakeGame {
             gridWidth: this.gridWidth,
             gridHeight: this.gridHeight,
             startTime: this.startTime,
-            elapsedTime: newElapsedTime
+            elapsedTime: newElapsedTime,
+            tickCount: this.tickCount + 1
         });
     }
 
@@ -403,6 +408,15 @@ export class SnakeGame {
     }
 
     /**
+     * Get the number of ticks simulated since game started
+     * 
+     * @returns Number of ticks
+     */
+    public getTickCount(): number {
+        return this.tickCount;
+    }
+
+    /**
      * Serialize the game state for rendering or persistence
      * 
      * @returns Complete game state object
@@ -419,7 +433,8 @@ export class SnakeGame {
             gridWidth: this.gridWidth,
             gridHeight: this.gridHeight,
             startTime: this.startTime,
-            elapsedTime: this.elapsedTime
+            elapsedTime: this.elapsedTime,
+            tickCount: this.tickCount
         };
     }
 

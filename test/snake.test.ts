@@ -393,6 +393,39 @@ describe('SnakeGame ADT', () => {
         });
     });
 
+    describe('getTickCount', () => {
+        test('returns zero for new game', () => {
+            const game = SnakeGame.create();
+            expect(game.getTickCount()).toBe(0);
+        });
+
+        test('returns zero for just-started game', () => {
+            const game = SnakeGame.create().start();
+            expect(game.getTickCount()).toBe(0);
+        });
+
+        test('increments with each tick', () => {
+            let game = SnakeGame.create().start();
+            expect(game.getTickCount()).toBe(0);
+
+            game = game.tick();
+            expect(game.getTickCount()).toBe(1);
+
+            game = game.tick();
+            expect(game.getTickCount()).toBe(2);
+
+            game = game.tick();
+            expect(game.getTickCount()).toBe(3);
+        });
+
+        test('is included in serialized state', () => {
+            let game = SnakeGame.create().start();
+            game = game.tick().tick().tick();
+            const state = game.serialize();
+            expect(state.tickCount).toBe(3);
+        });
+    });
+
     describe('serialize', () => {
         test('returns complete game state', () => {
             const game = SnakeGame.create(15, 12);
@@ -409,6 +442,7 @@ describe('SnakeGame ADT', () => {
             expect(state).toHaveProperty('gridHeight');
             expect(state).toHaveProperty('startTime');
             expect(state).toHaveProperty('elapsedTime');
+            expect(state).toHaveProperty('tickCount');
         });
     });
 
