@@ -15,7 +15,6 @@ import {
     tick,
     queueDirection,
     newGame,
-    restart,
     start,
     getState,
     getStatus
@@ -67,7 +66,7 @@ function init(): void {
     canvas.height = CANVAS_HEIGHT;
 
     setupInputHandlers();
-    gameLoop(0);
+    update(0);
 }
 
 /**
@@ -79,10 +78,7 @@ function setupInputHandlers(): void {
         if (event.code === 'Space') {
             event.preventDefault();
             const status = getStatus(game);
-
-            if (status === 'NOT_STARTED') {
-                game = start(game);
-            } else if (status === 'GAME_OVER') {
+            if (status === 'NOT_STARTED' || status === 'GAME_OVER') {
                 restartGame();
             }
             return;
@@ -128,45 +124,38 @@ function setupInputHandlers(): void {
  * Reset the game and timing state
  */
 function restartGame(): void {
-    game = restart(game);
-    game = start(game);
+    game = SnakeGame.create(GRID_WIDTH, GRID_HEIGHT);
+    start(game);
     tickTimeAcc = 0;
+    physicsTimeAcc = 0;
+    lastFrameTime = performance.now() / 1000;
 }
 
 /**
- * Update game state (called with fixed timestep)
+ * Update game state (called with fixed timestep, in seconds)
  */
-function update(dt: number): void {
+function physics_update(dt: number): void {
+    if (getStatus(game) !== 'PLAYING') {
+        return;
+    }
     // Accumulate time for game ticks
     tickTimeAcc += dt;
-
-    // Handle game ticks at TICK_INTERVAL rate
-    if (getStatus(game) === 'PLAYING') {
-        if (tickTimeAcc >= SNAKE_TICK) {
-            game = tick(game);
-            tickTimeAcc -= SNAKE_TICK;
-        }
+    if (tickTimeAcc >= SNAKE_TICK) {
+        game = tick(game);
+        tickTimeAcc -= SNAKE_TICK;
     }
+    
 }
 
 /**
  * Main game loop with fixed timestep
  */
-function gameLoop(nowMs: number): void {
+function update(nowMs: number): void {
     const now = nowMs / 1000; // Convert to seconds
-    let frameTime = now - lastFrameTime;
+    let frame_dt = now - lastFrameTime;
     lastFrameTime = now;
-
     // Avoid spiral of death (cap at 250ms)
-    frameTime = Math.min(frameTime, 0.25);
-
-    physicsTimeAcc += frameTime;
-
-    // Update with fixed timestep
-    while (physicsTimeAcc >= PHYSICS_TICK) {
-        update(PHYSICS_TICK);
-        physicsTimeAcc -= PHYSICS_TICK;
-    }
+    frame_dt = Math.min(frame_dt, 0.25);
 
     // Calculate FPS
     fpsFrames++;
@@ -177,11 +166,18 @@ function gameLoop(nowMs: number): void {
         fpsLastTime = performance.now();
     }
 
+    // Update with fixed timestep
+    physicsTimeAcc += frame_dt;
+    while (physicsTimeAcc >= PHYSICS_TICK) {
+        physics_update(PHYSICS_TICK);
+        physicsTimeAcc -= PHYSICS_TICK;
+    }
+
     // Render
     render();
 
     // Continue loop
-    requestAnimationFrame(gameLoop);
+    requestAnimationFrame(update);
 }
 
 /**

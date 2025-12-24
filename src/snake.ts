@@ -376,15 +376,6 @@ export class SnakeGame {
     }
 
     /**
-     * Restart the game with same grid dimensions
-     * 
-     * @returns A new SnakeGame instance in NOT_STARTED state
-     */
-    public restart(): SnakeGame {
-        return SnakeGame.create(this.gridWidth, this.gridHeight);
-    }
-
-    /**
      * Get the game status
      * 
      * @returns Current game status

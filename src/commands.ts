@@ -14,7 +14,7 @@
  * - Future middleware (e.g., undo/redo, networking)
  */
 
-import { SnakeGame, Direction } from './snake.js';
+import { SnakeGame, Direction, GameStatus, GameState } from './snake.js';
 
 /**
  * Advance game state by one frame
@@ -60,16 +60,6 @@ export function newGame(gridWidth: number = 20, gridHeight: number = 20): SnakeG
 }
 
 /**
- * Reset current game
- * 
- * @param game - Current game instance
- * @returns New game instance with same dimensions
- */
-export function restart(game: SnakeGame): SnakeGame {
-    return game.restart();
-}
-
-/**
  * Begin gameplay
  * 
  * @param game - Current game instance
@@ -85,7 +75,7 @@ export function start(game: SnakeGame): SnakeGame {
  * @param game - Current game instance
  * @returns Serialized game state
  */
-export function getState(game: SnakeGame) {
+export function getState(game: SnakeGame): GameState {
     return game.serialize();
 }
 
@@ -95,7 +85,7 @@ export function getState(game: SnakeGame) {
  * @param game - Current game instance
  * @returns Current game status
  */
-export function getStatus(game: SnakeGame) {
+export function getStatus(game: SnakeGame): GameStatus {
     return game.getStatus();
 }
 
@@ -105,7 +95,7 @@ export function getStatus(game: SnakeGame) {
  * @param game - Current game instance
  * @returns Current score
  */
-export function getScore(game: SnakeGame) {
+export function getScore(game: SnakeGame): number {
     return game.getScore();
 }
 
@@ -115,6 +105,6 @@ export function getScore(game: SnakeGame) {
  * @param game - Current game instance
  * @returns Elapsed time in milliseconds
  */
-export function getElapsedTime(game: SnakeGame) {
+export function getElapsedTime(game: SnakeGame): number {
     return game.getElapsedTime();
 }

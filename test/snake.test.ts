@@ -356,21 +356,6 @@ describe('SnakeGame ADT', () => {
         });
     });
 
-    describe('restart', () => {
-        test('creates new game with same dimensions', () => {
-            const game = SnakeGame.create(15, 12).start();
-            const updated = game.tick().tick().tick();
-            const restarted = updated.restart();
-            const state = restarted.serialize();
-
-            expect(state.gridWidth).toBe(15);
-            expect(state.gridHeight).toBe(12);
-            expect(state.status).toBe('NOT_STARTED');
-            expect(state.score).toBe(0);
-            expect(state.snake.length).toBe(1);
-        });
-    });
-
     describe('getStatus', () => {
         test('returns current game status', () => {
             const game = SnakeGame.create();
