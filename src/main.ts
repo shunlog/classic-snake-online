@@ -19,6 +19,7 @@ import {
     getState,
     getStatus
 } from './commands.js';
+import { GameLoop } from './gameLoop.js';
 
 // Canvas and rendering constants
 const CANVAS_WIDTH = 400;
@@ -27,30 +28,20 @@ const CELL_SIZE = 20;
 const GRID_WIDTH = CANVAS_WIDTH / CELL_SIZE;  // 20
 const GRID_HEIGHT = CANVAS_HEIGHT / CELL_SIZE; // 20
 
-// There are three timings:
-// 1. Physics ticks (fixed rate)
-// 2. Snake ticks (the rate at which the snake moves)
-// 3. Render ticks (based on frame rate, provided by getAnimationFrame)
+// Tick duration when the snake moves (seconds)
+const SNAKE_TICK = 0.2; // 200 ms
 
-// Physics ticks have to happen at a fixed rate for consistent gameplay.
-// The browser API requestAnimationFrame gives us the time since last frame update,
-// so we make sure to call the update function multiple times if needed to catch up.
-
-// Fixed timestep constants
-const PHYSICS_TICK = 1 / 60; // 60 Hz (in seconds)
-const SNAKE_TICK = 10 * PHYSICS_TICK; // Convert to seconds
-
-let physicsTimeAcc = 0;  // seconds, accumulated since last physics update
-let lastFrameTime = performance.now() / 1000;
-let tickTimeAcc = 0;  // seconds, accumulated since last snake tick
+let dtAcc = 0;  // seconds, accumulated since last snake tick
 
 // Game state
 let game: SnakeGame = newGame(GRID_WIDTH, GRID_HEIGHT);
 
-// FPS tracking
-let fpsFrames = 0;
-let fpsLastTime = performance.now();
-let currentFPS = 60;
+// Game loop instance
+let gameLoop: GameLoop = new GameLoop({
+    update: _update,
+    render: _draw,
+    handleInput: _handle_input
+});
 
 /**
  * Initialize the game
@@ -65,125 +56,85 @@ function init(): void {
     canvas.width = CANVAS_WIDTH;
     canvas.height = CANVAS_HEIGHT;
 
-    setupInputHandlers();
-    update(0);
+    gameLoop.start();
 }
 
 /**
- * Setup keyboard input handlers
+ * Handle keyboard input
  */
-function setupInputHandlers(): void {
-    document.addEventListener('keydown', (event: KeyboardEvent) => {
-        // Start/restart game with spacebar
-        if (event.code === 'Space') {
+function _handle_input(event: KeyboardEvent): void {
+    // Start/restart game with spacebar
+    if (event.code === 'Space') {
+        event.preventDefault();
+        const status = getStatus(game);
+        if (status === 'NOT_STARTED') {
+            game = start(game);
+        } else if (status === 'GAME_OVER') {
+            restartGame();
+        }
+        return;
+    }
+
+    // Direction input (only during gameplay)
+    if (getStatus(game) !== 'PLAYING') {
+        return;
+    }
+
+    let direction: Direction | null = null;
+
+    switch (event.code) {
+        case 'ArrowUp':
+        case 'KeyW':
+            direction = 'UP';
             event.preventDefault();
-            const status = getStatus(game);
-            if (status === 'NOT_STARTED' || status === 'GAME_OVER') {
-                restartGame();
-            }
-            return;
-        }
+            break;
+        case 'ArrowDown':
+        case 'KeyS':
+            direction = 'DOWN';
+            event.preventDefault();
+            break;
+        case 'ArrowLeft':
+        case 'KeyA':
+            direction = 'LEFT';
+            event.preventDefault();
+            break;
+        case 'ArrowRight':
+        case 'KeyD':
+            direction = 'RIGHT';
+            event.preventDefault();
+            break;
+    }
 
-        // Direction input (only during gameplay)
-        if (getStatus(game) !== 'PLAYING') {
-            return;
-        }
-
-        let direction: Direction | null = null;
-
-        switch (event.code) {
-            case 'ArrowUp':
-            case 'KeyW':
-                direction = 'UP';
-                event.preventDefault();
-                break;
-            case 'ArrowDown':
-            case 'KeyS':
-                direction = 'DOWN';
-                event.preventDefault();
-                break;
-            case 'ArrowLeft':
-            case 'KeyA':
-                direction = 'LEFT';
-                event.preventDefault();
-                break;
-            case 'ArrowRight':
-            case 'KeyD':
-                direction = 'RIGHT';
-                event.preventDefault();
-                break;
-        }
-
-        if (direction !== null) {
-            game = queueDirection(game, direction);
-        }
-    });
+    if (direction !== null) {
+        game = queueDirection(game, direction);
+    }
 }
 
-/**
- * Reset the game and timing state
- */
 function restartGame(): void {
     game = SnakeGame.create(GRID_WIDTH, GRID_HEIGHT);
-    start(game);
-    tickTimeAcc = 0;
-    physicsTimeAcc = 0;
-    lastFrameTime = performance.now() / 1000;
+    dtAcc = 0;
+    game = start(game);
 }
 
 /**
  * Update game state (called with fixed timestep, in seconds)
  */
-function physics_update(dt: number): void {
+function _update(dt: number): void {
     if (getStatus(game) !== 'PLAYING') {
         return;
     }
-    // Accumulate time for game ticks
-    tickTimeAcc += dt;
-    if (tickTimeAcc >= SNAKE_TICK) {
+
+    dtAcc += dt;
+    if (dtAcc >= SNAKE_TICK) {
         game = tick(game);
-        tickTimeAcc -= SNAKE_TICK;
+        dtAcc -= SNAKE_TICK;
     }
-    
-}
-
-/**
- * Main game loop with fixed timestep
- */
-function update(nowMs: number): void {
-    const now = nowMs / 1000; // Convert to seconds
-    let frame_dt = now - lastFrameTime;
-    lastFrameTime = now;
-    // Avoid spiral of death (cap at 250ms)
-    frame_dt = Math.min(frame_dt, 0.25);
-
-    // Calculate FPS
-    fpsFrames++;
-    const fpsElapsed = performance.now() - fpsLastTime;
-    if (fpsElapsed >= 1000) { // Update FPS every second
-        currentFPS = Math.round((fpsFrames * 1000) / fpsElapsed);
-        fpsFrames = 0;
-        fpsLastTime = performance.now();
-    }
-
-    // Update with fixed timestep
-    physicsTimeAcc += frame_dt;
-    while (physicsTimeAcc >= PHYSICS_TICK) {
-        physics_update(PHYSICS_TICK);
-        physicsTimeAcc -= PHYSICS_TICK;
-    }
-
-    // Render
-    render();
-
-    // Continue loop
-    requestAnimationFrame(update);
 }
 
 /**
  * Render the game state to canvas
  */
-function render(): void {
+function _draw(): void {
     const canvas = document.getElementById('gameCanvas') as HTMLCanvasElement;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
@@ -247,11 +198,12 @@ function render(): void {
     // Update FPS display
     const fpsElement = document.getElementById('fps');
     if (fpsElement) {
-        fpsElement.textContent = `FPS: ${currentFPS}`;
+        const fps = gameLoop.fps;
+        fpsElement.textContent = `FPS: ${fps}`;
         // Color code: green if good, yellow if medium, red if bad
-        if (currentFPS >= 55) {
+        if (fps >= 55) {
             fpsElement.style.color = '#4a7c2c';
-        } else if (currentFPS >= 30) {
+        } else if (fps >= 30) {
             fpsElement.style.color = '#ff8800';
         } else {
             fpsElement.style.color = '#ff4444';

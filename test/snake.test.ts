@@ -180,6 +180,19 @@ describe('SnakeGame ADT', () => {
             expect(state.queuedDir1).toBe('UP');
             expect(state.queuedDir2).toBe('LEFT');
         });
+
+        test('queues two directions, tick, queue another direction', () => {
+            const game = SnakeGame.create().start();
+            const updated = game.queueDirection('UP')
+                .queueDirection('LEFT')
+                .tick()
+                .queueDirection('RIGHT');
+            const state = updated.serialize();
+
+            expect(state.queuedDir1).toBe('LEFT');
+            // RIGHT was ignored because opposite of LEFT which was next
+            expect(state.queuedDir2).toBeNull();
+        });
     });
 
     describe('tick', () => {
