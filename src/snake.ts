@@ -176,13 +176,27 @@ export class SnakeGame {
      * 
      * @param gridWidth - Width of the game grid (default: 20)
      * @param gridHeight - Height of the game grid (default: 20)
+     * @param snakeLength - Initial length of the snake (default: 1, minimum: 1)
      * @returns A new SnakeGame instance in NOT_STARTED state
      */
-    public static create(gridWidth: number = 20, gridHeight: number = 20): SnakeGame {
+    public static create(gridWidth: number = 20, gridHeight: number = 20, snakeLength: number = 1): SnakeGame {
+        if (snakeLength < 1) {
+            throw new Error('Snake length must be at least 1');
+        }
+        
         const centerX = Math.floor(gridWidth / 2);
         const centerY = Math.floor(gridHeight / 2);
 
-        const initialSnake: Position[] = [{ x: centerX, y: centerY }];
+        // Create snake with head at center, body extending to the left
+        const initialSnake: Position[] = [];
+        for (let i = 0; i < snakeLength; i++) {
+            const segmentX = centerX - i;
+            if (segmentX < 0) {
+                throw new Error(`Snake length ${snakeLength} is too long for grid width ${gridWidth}`);
+            }
+            initialSnake.push({ x: segmentX, y: centerY });
+        }
+
         const food = SnakeGame.generateFood(initialSnake, gridWidth, gridHeight);
 
         return new SnakeGame({
@@ -331,19 +345,6 @@ export class SnakeGame {
             });
         }
 
-        // Check self-collision
-        for (const segment of this.snake) {
-            if (newHead.x === segment.x && newHead.y === segment.y) {
-                return new SnakeGame({
-                    ...this.serialize(),
-                    status: 'GAME_OVER',
-                    direction: newDirection,
-                    queuedDir1: newQueuedDir1,
-                    queuedDir2: newQueuedDir2
-                });
-            }
-        }
-
         // Check food consumption
         const ateFood = newHead.x === this.food.x && newHead.y === this.food.y;
 
@@ -359,6 +360,21 @@ export class SnakeGame {
         } else {
             // Move snake (remove tail)
             newSnake = [newHead, ...this.snake.slice(0, -1)];
+        }
+
+        // Check self-collision against the new snake body (after tail removal/growth)
+        // Skip the head (index 0) since that's the new position we're checking
+        for (let i = 1; i < newSnake.length; i++) {
+            const segment = newSnake[i];
+            if (newHead.x === segment.x && newHead.y === segment.y) {
+                return new SnakeGame({
+                    ...this.serialize(),
+                    status: 'GAME_OVER',
+                    direction: newDirection,
+                    queuedDir1: newQueuedDir1,
+                    queuedDir2: newQueuedDir2
+                });
+            }
         }
 
         // Update elapsed time

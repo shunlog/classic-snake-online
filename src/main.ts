@@ -27,6 +27,7 @@ const CANVAS_HEIGHT = 400;
 const CELL_SIZE = 20;
 const GRID_WIDTH = CANVAS_WIDTH / CELL_SIZE;  // 20
 const GRID_HEIGHT = CANVAS_HEIGHT / CELL_SIZE; // 20
+const SNAKE_LENGTH = 4; // Initial snake length
 
 // Tick duration when the snake moves (seconds)
 const SNAKE_TICK = 0.2; // 200 ms
@@ -34,7 +35,17 @@ const SNAKE_TICK = 0.2; // 200 ms
 let dtAcc = 0;  // seconds, accumulated since last snake tick
 
 // Game state
-let game: SnakeGame = newGame(GRID_WIDTH, GRID_HEIGHT);
+let game: SnakeGame;
+resetGame();
+
+function resetGame(): void {
+    game = newGame(GRID_WIDTH, GRID_HEIGHT, SNAKE_LENGTH);
+    dtAcc = 0;
+}
+
+function startGame(): void {
+    game = start(game);
+}
 
 // Game loop instance
 let gameLoop: GameLoop = new GameLoop({
@@ -70,7 +81,8 @@ function _handle_input(event: KeyboardEvent): void {
         if (status === 'NOT_STARTED') {
             game = start(game);
         } else if (status === 'GAME_OVER') {
-            restartGame();
+            resetGame();
+            startGame();
         }
         return;
     }
@@ -110,11 +122,6 @@ function _handle_input(event: KeyboardEvent): void {
     }
 }
 
-function restartGame(): void {
-    game = SnakeGame.create(GRID_WIDTH, GRID_HEIGHT);
-    dtAcc = 0;
-    game = start(game);
-}
 
 /**
  * Update game state (called with fixed timestep, in seconds)

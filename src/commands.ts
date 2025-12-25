@@ -55,8 +55,11 @@ export function queueDirection(game: SnakeGame, direction: Direction): SnakeGame
  * @param gridHeight - Grid height (default: 20)
  * @returns New game instance
  */
-export function newGame(gridWidth: number = 20, gridHeight: number = 20): SnakeGame {
-    return SnakeGame.create(gridWidth, gridHeight);
+export function newGame(gridWidth: number = 20,
+    gridHeight: number = 20,
+    snakeLength: number = 1
+): SnakeGame {
+    return SnakeGame.create(gridWidth, gridHeight, snakeLength);
 }
 
 /**
