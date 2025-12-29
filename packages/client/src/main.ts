@@ -10,7 +10,7 @@
  * It never calls SnakeGame methods directly.
  */
 
-import { SnakeGame, Direction, GameState } from './snake.js';
+import { SnakeGame, Direction, GameState } from '@snake/shared';
 import {
     tick,
     queueDirection,

@@ -14,7 +14,7 @@
  * - Future middleware (e.g., undo/redo, networking)
  */
 
-import { SnakeGame, Direction, GameStatus, GameState } from './snake.js';
+import { SnakeGame, Direction, GameStatus, GameState } from '@snake/shared';
 
 /**
  * Advance game state by one frame

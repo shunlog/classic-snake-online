@@ -2,18 +2,20 @@
 
 Classic Snake game with TypeScript and ADT design.
 
+Monorepo with 3 packages: `@snake/shared` (game logic), `@snake/client` (browser UI), `@snake/server` (API).
+
 ## Quick Start
 
 ```bash
-npm install
-npm run build
-python3 -m http.server 8080
-```
+pnpm install
+pnpm build
 
-Open http://localhost:8080
+# Run client
+pnpm dev:client
 
-## Run Tests
+# Run server
+pnpm dev:server
 
-```bash
-npm test
+# Run tests
+pnpm test
 ```
