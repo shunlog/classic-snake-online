@@ -1,44 +1,51 @@
 /**
- * Simple dummy server for Classic Snake
- * Provides a basic endpoint for demonstration
+ * WebSocket server for Classic Snake
+ * Handles tick messages from clients and echoes them back
  */
 
-import { SnakeGame } from '@snake/shared';
+import { WebSocketServer, WebSocket } from 'ws';
 
-interface ApiResponse {
-  message: string;
-  timestamp: string;
-  gameInfo?: {
-    version: string;
-    description: string;
-  };
+interface TickMessage {
+  type: 'tick';
+  tickCount: number;
 }
 
 /**
- * Dummy endpoint that returns game information
+ * Start WebSocket server on specified port
  */
-export function getGameInfo(): ApiResponse {
-  return {
-    message: 'Classic Snake Server API',
-    timestamp: new Date().toISOString(),
-    gameInfo: {
-      version: '1.0.0',
-      description: 'Classic Snake game with TypeScript and ADT design',
-    },
-  };
+function startWebSocketServer(port: number = 3000): void {
+  const wss = new WebSocketServer({ port });
+
+  wss.on('connection', (ws: WebSocket) => {
+    console.log('Client connected');
+
+    ws.on('message', (data: Buffer) => {
+      try {
+        const message = JSON.parse(data.toString()) as TickMessage;
+        
+        if (message.type === 'tick') {
+          // Echo the message back to the client
+          ws.send(JSON.stringify(message));
+        }
+      } catch (error) {
+        console.error('Error parsing message:', error);
+      }
+    });
+
+    ws.on('close', () => {
+      console.log('Client disconnected');
+    });
+
+    ws.on('error', (error) => {
+      console.error('WebSocket error:', error);
+    });
+  });
+
+  console.log(`WebSocket server running on ws://localhost:${port}`);
 }
 
-/**
- * Create a new game instance (server-side)
- */
-export function createServerGame(width: number, height: number, snakeLength: number): SnakeGame {
-  return SnakeGame.create(width, height, snakeLength);
-}
-
-// Simple HTTP server if running in Node environment
+// Start server if running in Node environment
 const isNode = typeof globalThis !== 'undefined' && !('window' in globalThis);
 if (isNode) {
-  console.log('Server initialized');
-  console.log('API endpoint: /api/info');
-  console.log(JSON.stringify(getGameInfo(), null, 2));
+  startWebSocketServer(3001);
 }

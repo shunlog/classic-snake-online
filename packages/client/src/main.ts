@@ -34,6 +34,57 @@ const SNAKE_TICK = 0.2; // 200 ms
 
 let dtAcc = 0;  // seconds, accumulated since last snake tick
 
+// WebSocket connection
+let ws: WebSocket | null = null;
+const pendingMessages = new Map<number, number>(); // tickCount -> timestamp
+
+/**
+ * Initialize WebSocket connection
+ */
+function initWebSocket(): void {
+    ws = new WebSocket('ws://localhost:3001');
+    
+    ws.onopen = () => {
+        console.log('WebSocket connected to server');
+    };
+    
+    ws.onmessage = (event) => {
+        try {
+            const message = JSON.parse(event.data);
+            if (message.type === 'tick' && typeof message.tickCount === 'number') {
+                const sendTime = pendingMessages.get(message.tickCount);
+                if (sendTime !== undefined) {
+                    const latency = performance.now() - sendTime;
+                    console.log(`${message.tickCount == game.getTickCount()} Tick ${message.tickCount}, current ${game.getTickCount()} round-trip: ${latency.toFixed(2)}ms`);
+                    pendingMessages.delete(message.tickCount);
+                }
+            }
+        } catch (error) {
+            console.error('Error parsing WebSocket message:', error);
+        }
+    };
+    
+    ws.onerror = (error) => {
+        console.error('WebSocket error:', error);
+    };
+    
+    ws.onclose = () => {
+        console.log('WebSocket disconnected');
+        // Attempt to reconnect after 2 seconds
+        setTimeout(initWebSocket, 2000);
+    };
+}
+
+/**
+ * Send tick message to server
+ */
+function sendTickMessage(tickCount: number): void {
+    if (ws && ws.readyState === WebSocket.OPEN) {
+        pendingMessages.set(tickCount, performance.now());
+        ws.send(JSON.stringify({ type: 'tick', tickCount }));
+    }
+}
+
 // Game state
 let game: SnakeGame;
 resetGame();
@@ -66,6 +117,9 @@ function init(): void {
 
     canvas.width = CANVAS_WIDTH;
     canvas.height = CANVAS_HEIGHT;
+
+    // Initialize WebSocket connection
+    initWebSocket();
 
     gameLoop.start();
 }
@@ -135,6 +189,10 @@ function _update(dt: number): void {
     if (dtAcc >= SNAKE_TICK) {
         game = tick(game);
         dtAcc -= SNAKE_TICK;
+        
+        // Send tick message to server
+        const state = getState(game);
+        sendTickMessage(state.tickCount);
     }
 }
 
