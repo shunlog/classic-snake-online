@@ -10,7 +10,18 @@ import { SnakeGame, Direction, GameState } from '@snake/shared';
 const GRID_WIDTH = 20;
 const GRID_HEIGHT = 20;
 const SNAKE_LENGTH = 4;
-const TICK_INTERVAL_MS = 200; // 200ms per tick
+const TICK_INTERVAL_MS = 100; // 100ms per tick
+
+// Network simulation
+const MIN_DELAY_MS = 30;
+const MAX_DELAY_MS = 50;
+
+/**
+ * Get random delay between MIN_DELAY_MS and MAX_DELAY_MS
+ */
+function getRandomDelay(): number {
+  return MIN_DELAY_MS + Math.random() * (MAX_DELAY_MS - MIN_DELAY_MS);
+}
 
 // Message types
 interface InputMessage {
@@ -38,26 +49,29 @@ class GameSession {
   }
 
   /**
-   * Handle input message from client
+   * Handle input message from client (with simulated network delay)
    */
   handleInput(message: InputMessage): void {
-    try {
-      switch (message.type) {
-        case 'start':
-          this.start();
-          break;
-        case 'restart':
-          this.restart();
-          break;
-        case 'direction':
-          if (message.direction) {
-            this.queueDirection(message.direction);
-          }
-          break;
+    // Simulate network latency
+    setTimeout(() => {
+      try {
+        switch (message.type) {
+          case 'start':
+            this.start();
+            break;
+          case 'restart':
+            this.restart();
+            break;
+          case 'direction':
+            if (message.direction) {
+              this.queueDirection(message.direction);
+            }
+            break;
+        }
+      } catch (error) {
+        console.error('Error handling input:', error);
       }
-    } catch (error) {
-      console.error('Error handling input:', error);
-    }
+    }, getRandomDelay());
   }
 
   /**
@@ -125,7 +139,7 @@ class GameSession {
   }
 
   /**
-   * Send current game state to client
+   * Send current game state to client (with simulated network delay)
    */
   private sendState(): void {
     const message: StateMessage = {
@@ -133,9 +147,12 @@ class GameSession {
       state: this.game.serialize()
     };
 
-    if (this.ws.readyState === WebSocket.OPEN) {
-      this.ws.send(JSON.stringify(message));
-    }
+    // Simulate network latency
+    setTimeout(() => {
+      if (this.ws.readyState === WebSocket.OPEN) {
+        this.ws.send(JSON.stringify(message));
+      }
+    }, getRandomDelay());
   }
 
   /**
