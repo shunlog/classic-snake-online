@@ -1,24 +1,11 @@
 /**
- * Main game loop and rendering
+ * Dumb Client - Only handles input and rendering
  * 
- * This module orchestrates the game by:
- * - Managing the game loop
- * - Handling user input
- * - Rendering to HTML canvas
- * 
- * IMPORTANT: This module ONLY calls functions from commands.ts
- * It never calls SnakeGame methods directly.
+ * Game logic runs entirely on the server.
+ * Client sends input commands and receives game state updates.
  */
 
-import { SnakeGame, Direction, GameState } from '@snake/shared';
-import {
-    tick,
-    queueDirection,
-    newGame,
-    start,
-    getState,
-    getStatus
-} from './commands.js';
+import { Direction, GameState } from '@snake/shared';
 import { GameLoop } from './gameLoop.js';
 
 // Canvas and rendering constants
@@ -27,16 +14,23 @@ const CANVAS_HEIGHT = 400;
 const CELL_SIZE = 20;
 const GRID_WIDTH = CANVAS_WIDTH / CELL_SIZE;  // 20
 const GRID_HEIGHT = CANVAS_HEIGHT / CELL_SIZE; // 20
-const SNAKE_LENGTH = 4; // Initial snake length
-
-// Tick duration when the snake moves (seconds)
-const SNAKE_TICK = 0.2; // 200 ms
-
-let dtAcc = 0;  // seconds, accumulated since last snake tick
 
 // WebSocket connection
 let ws: WebSocket | null = null;
-const pendingMessages = new Map<number, number>(); // tickCount -> timestamp
+
+// Current game state received from server
+let currentState: GameState | null = null;
+
+// Message types
+interface InputMessage {
+  type: 'start' | 'restart' | 'direction';
+  direction?: Direction;
+}
+
+interface StateMessage {
+  type: 'state';
+  state: GameState;
+}
 
 /**
  * Initialize WebSocket connection
@@ -50,14 +44,10 @@ function initWebSocket(): void {
     
     ws.onmessage = (event) => {
         try {
-            const message = JSON.parse(event.data);
-            if (message.type === 'tick' && typeof message.tickCount === 'number') {
-                const sendTime = pendingMessages.get(message.tickCount);
-                if (sendTime !== undefined) {
-                    const latency = performance.now() - sendTime;
-                    console.log(`${message.tickCount == game.getTickCount()} Tick ${message.tickCount}, current ${game.getTickCount()} round-trip: ${latency.toFixed(2)}ms`);
-                    pendingMessages.delete(message.tickCount);
-                }
+            const message = JSON.parse(event.data) as StateMessage;
+            if (message.type === 'state') {
+                currentState = message.state;
+                console.log(`Received state update: tick ${message.state.tickCount}, status ${message.state.status}`);
             }
         } catch (error) {
             console.error('Error parsing WebSocket message:', error);
@@ -70,32 +60,19 @@ function initWebSocket(): void {
     
     ws.onclose = () => {
         console.log('WebSocket disconnected');
+        currentState = null;
         // Attempt to reconnect after 2 seconds
         setTimeout(initWebSocket, 2000);
     };
 }
 
 /**
- * Send tick message to server
+ * Send input message to server
  */
-function sendTickMessage(tickCount: number): void {
+function sendInput(message: InputMessage): void {
     if (ws && ws.readyState === WebSocket.OPEN) {
-        pendingMessages.set(tickCount, performance.now());
-        ws.send(JSON.stringify({ type: 'tick', tickCount }));
+        ws.send(JSON.stringify(message));
     }
-}
-
-// Game state
-let game: SnakeGame;
-resetGame();
-
-function resetGame(): void {
-    game = newGame(GRID_WIDTH, GRID_HEIGHT, SNAKE_LENGTH);
-    dtAcc = 0;
-}
-
-function startGame(): void {
-    game = start(game);
 }
 
 // Game loop instance
@@ -128,21 +105,21 @@ function init(): void {
  * Handle keyboard input
  */
 function _handle_input(event: KeyboardEvent): void {
+    if (!currentState) return;
+
     // Start/restart game with spacebar
     if (event.code === 'Space') {
         event.preventDefault();
-        const status = getStatus(game);
-        if (status === 'NOT_STARTED') {
-            game = start(game);
-        } else if (status === 'GAME_OVER') {
-            resetGame();
-            startGame();
+        if (currentState.status === 'NOT_STARTED') {
+            sendInput({ type: 'start' });
+        } else if (currentState.status === 'GAME_OVER') {
+            sendInput({ type: 'restart' });
         }
         return;
     }
 
     // Direction input (only during gameplay)
-    if (getStatus(game) !== 'PLAYING') {
+    if (currentState.status !== 'PLAYING') {
         return;
     }
 
@@ -172,28 +149,17 @@ function _handle_input(event: KeyboardEvent): void {
     }
 
     if (direction !== null) {
-        game = queueDirection(game, direction);
+        sendInput({ type: 'direction', direction });
     }
 }
 
 
 /**
- * Update game state (called with fixed timestep, in seconds)
+ * Update game state (no-op for dumb client)
  */
-function _update(dt: number): void {
-    if (getStatus(game) !== 'PLAYING') {
-        return;
-    }
-
-    dtAcc += dt;
-    if (dtAcc >= SNAKE_TICK) {
-        game = tick(game);
-        dtAcc -= SNAKE_TICK;
-        
-        // Send tick message to server
-        const state = getState(game);
-        sendTickMessage(state.tickCount);
-    }
+function _update(_dt: number): void {
+    // Server handles all game logic
+    // Client just renders the latest state
 }
 
 /**
@@ -204,7 +170,18 @@ function _draw(): void {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    const state: GameState = getState(game);
+    // If no state yet, show loading
+    if (!currentState) {
+        ctx.fillStyle = '#f5f5f5';
+        ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+        ctx.fillStyle = '#333';
+        ctx.font = '20px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText('Connecting to server...', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2);
+        return;
+    }
+
+    const state = currentState;
 
     // Clear canvas
     ctx.fillStyle = '#f5f5f5';
