@@ -10,11 +10,12 @@ import { SnakeGame, Direction, GameState } from '@snake/shared';
 const GRID_WIDTH = 20;
 const GRID_HEIGHT = 20;
 const SNAKE_LENGTH = 4;
-const TICK_INTERVAL_MS = 100; // 100ms per tick
+const TICK_INTERVAL_MS = 200; // 100ms per tick
+const SERVER_TICK_DELAY = 3; // Server runs 3 ticks behind client for input buffering
 
 // Network simulation
-const MIN_DELAY_MS = 30;
-const MAX_DELAY_MS = 50;
+const MIN_DELAY_MS = 0;
+const MAX_DELAY_MS = 1;
 
 /**
  * Get random delay between MIN_DELAY_MS and MAX_DELAY_MS
@@ -27,6 +28,7 @@ function getRandomDelay(): number {
 interface InputMessage {
   type: 'start' | 'restart' | 'direction';
   direction?: Direction;
+  clientTick?: number; // Tick number when input was generated on client
 }
 
 interface StateMessage {
@@ -41,6 +43,7 @@ class GameSession {
   private game: SnakeGame;
   private tickInterval: NodeJS.Timeout | null = null;
   private ws: WebSocket;
+  private pendingInputs: Map<number, Direction> = new Map(); // clientTick -> direction
 
   constructor(ws: WebSocket) {
     this.ws = ws;
@@ -63,7 +66,10 @@ class GameSession {
             this.restart();
             break;
           case 'direction':
-            if (message.direction) {
+            if (message.direction && message.clientTick !== undefined) {
+              this.queueDirectionAtTick(message.direction, message.clientTick);
+            } else if (message.direction) {
+              // Fallback for messages without tick (shouldn't happen with prediction)
               this.queueDirection(message.direction);
             }
             break;
@@ -72,6 +78,34 @@ class GameSession {
         console.error('Error handling input:', error);
       }
     }, getRandomDelay());
+  }
+
+  /**
+   * Queue a direction change for a specific client tick
+   */
+  private queueDirectionAtTick(direction: Direction, clientTick: number): void {
+    if (this.game.getStatus() !== 'PLAYING') {
+      return;
+    }
+
+    const currentServerTick = this.game.getTickCount();
+
+    // Check if we've already simulated past this tick
+    if (clientTick <= currentServerTick) {
+      console.log(
+        `[Server] Discarding late input: clientTick=${clientTick}, ` +
+        `clientTick=${clientTick}, currentServerTick=${currentServerTick}, ` +
+        `late by ${currentServerTick - clientTick} ticks`
+      );
+      return;
+    }
+
+    // Store the input for the target tick
+    this.pendingInputs.set(clientTick, direction);
+    console.log(
+      `[Server] Queued input for tick ${clientTick} (clientTick=${clientTick}), ` +
+      `currentServerTick=${currentServerTick}`
+    );
   }
 
   /**
@@ -92,6 +126,7 @@ class GameSession {
    */
   private restart(): void {
     this.stopTickLoop();
+    this.pendingInputs.clear();
     this.game = SnakeGame.create(GRID_WIDTH, GRID_HEIGHT, SNAKE_LENGTH);
     this.game = this.game.start();
     this.sendState();
@@ -114,9 +149,23 @@ class GameSession {
     if (this.tickInterval !== null) {
       return;
     }
+    
+    this.initialDelayTickInterval = setInterval(() => {clearInterval(this.initialDelayTickInterval)},
+     SERVER_TICK_DELAY * TICK_INTERVAL_MS); // Initial delay before starting
 
     this.tickInterval = setInterval(() => {
       if (this.game.getStatus() === 'PLAYING') {
+        const currentTick = this.game.serialize().tickCount;
+        
+        // Check if there's a pending input for this tick
+        const pendingDirection = this.pendingInputs.get(currentTick);
+        if (pendingDirection) {
+          this.game = this.game.queueDirection(pendingDirection);
+          this.pendingInputs.delete(currentTick);
+          console.log(`[Server] Applied input at tick ${currentTick}: ${pendingDirection}`);
+        }
+
+        // Tick the game
         this.game = this.game.tick();
         this.sendState();
 

@@ -216,6 +216,17 @@ export class SnakeGame {
     }
 
     /**
+     * Create a game instance from a serialized state
+     * Used for client-side prediction reconciliation
+     * 
+     * @param state - Serialized game state
+     * @returns A new SnakeGame instance with the given state
+     */
+    public static fromState(state: GameState): SnakeGame {
+        return new SnakeGame(state);
+    }
+
+    /**
      * Start the game
      * 
      * @returns A new SnakeGame instance with status PLAYING and timer started

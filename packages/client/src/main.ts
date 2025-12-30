@@ -1,11 +1,11 @@
 /**
- * Dumb Client - Only handles input and rendering
+ * Client with Prediction - Runs local simulation and reconciles with server
  * 
- * Game logic runs entirely on the server.
- * Client sends input commands and receives game state updates.
+ * Client predicts game state locally for responsive controls,
+ * then reconciles with authoritative server state.
  */
 
-import { Direction, GameState } from '@snake/shared';
+import { SnakeGame, Direction, GameState } from '@snake/shared';
 import { GameLoop } from './gameLoop.js';
 
 // Canvas and rendering constants
@@ -14,17 +14,23 @@ const CANVAS_HEIGHT = 400;
 const CELL_SIZE = 20;
 const GRID_WIDTH = CANVAS_WIDTH / CELL_SIZE;  // 20
 const GRID_HEIGHT = CANVAS_HEIGHT / CELL_SIZE; // 20
+const SNAKE_LENGTH = 4;
+const TICK_INTERVAL_MS = 200; // Must match server
 
 // WebSocket connection
 let ws: WebSocket | null = null;
 
-// Current game state received from server
-let currentState: GameState | null = null;
+// Client prediction state
+let predictedGame: SnakeGame | null = null;
+let lastServerState: GameState | null = null;
+let pendingInputs: Array<{ direction: Direction; tick: number }> = [];
+let tickAccumulator = 0;
 
 // Message types
 interface InputMessage {
   type: 'start' | 'restart' | 'direction';
   direction?: Direction;
+  clientTick?: number;
 }
 
 interface StateMessage {
@@ -46,8 +52,9 @@ function initWebSocket(): void {
         try {
             const message = JSON.parse(event.data) as StateMessage;
             if (message.type === 'state') {
-                currentState = message.state;
-                console.log(`Received state update: tick ${message.state.tickCount}, status ${message.state.status}`);
+                lastServerState = message.state;
+                reconcileWithServer(message.state);
+                console.log(`[Client] Received server state: tick ${message.state.tickCount}`);
             }
         } catch (error) {
             console.error('Error parsing WebSocket message:', error);
@@ -60,10 +67,48 @@ function initWebSocket(): void {
     
     ws.onclose = () => {
         console.log('WebSocket disconnected');
-        currentState = null;
+        lastServerState = null;
+        predictedGame = null;
         // Attempt to reconnect after 2 seconds
         setTimeout(initWebSocket, 2000);
     };
+}
+
+/**
+ * Reconcile predicted state with authoritative server state
+ */
+function reconcileWithServer(serverState: GameState): void {
+    // Remove inputs that have been processed by the server
+    pendingInputs = pendingInputs.filter(input => input.tick > serverState.tickCount);
+    const serverTick = serverState.tickCount;
+    const currentTick = predictedGame ? predictedGame.getTickCount() : serverTick + 3;
+    console.log(`[Client] Reconciling: serverTick=${serverTick}, predictedTick=${currentTick}, pendingInputs=${pendingInputs.length}`);
+    // Reset predicted game to server state
+    predictedGame = SnakeGame.fromState(serverState);
+
+    // Re-apply pending inputs
+    for (const input of pendingInputs) {
+        if (predictedGame && predictedGame.getStatus() === 'PLAYING') {
+            if (input.tick > predictedGame.getTickCount()) {
+                predictedGame = predictedGame.tick();
+            }
+            predictedGame = predictedGame.queueDirection(input.direction);
+        }
+    }
+    while(predictedGame.getTickCount() < currentTick) {
+        if (predictedGame.getStatus() !== 'PLAYING') {
+            break;
+        }
+        predictedGame = predictedGame.tick();
+    }
+
+    if (predictedGame) {
+        console.log(
+            `[Client] Reconciled: serverTick=${serverTick}, ` +
+            `predictedTick=${predictedGame.serialize().tickCount}, ` +
+            `pendingInputs=${pendingInputs.length}`
+        );
+    }
 }
 
 /**
@@ -105,21 +150,26 @@ function init(): void {
  * Handle keyboard input
  */
 function _handle_input(event: KeyboardEvent): void {
-    if (!currentState) return;
+    if (!lastServerState) return;
 
     // Start/restart game with spacebar
     if (event.code === 'Space') {
         event.preventDefault();
-        if (currentState.status === 'NOT_STARTED') {
+        if (lastServerState.status === 'NOT_STARTED') {
             sendInput({ type: 'start' });
-        } else if (currentState.status === 'GAME_OVER') {
+            // Initialize predicted game when starting
+            predictedGame = SnakeGame.create(GRID_WIDTH, GRID_HEIGHT, SNAKE_LENGTH);
+            predictedGame = predictedGame.start();
+        } else if (lastServerState.status === 'GAME_OVER') {
             sendInput({ type: 'restart' });
+            pendingInputs = [];
+            predictedGame = null;
         }
         return;
     }
 
     // Direction input (only during gameplay)
-    if (currentState.status !== 'PLAYING') {
+    if (lastServerState.status !== 'PLAYING' || !predictedGame) {
         return;
     }
 
@@ -149,17 +199,36 @@ function _handle_input(event: KeyboardEvent): void {
     }
 
     if (direction !== null) {
-        sendInput({ type: 'direction', direction });
+        const clientTick = predictedGame.serialize().tickCount;
+        
+        // Apply input locally for prediction
+        predictedGame = predictedGame.queueDirection(direction);
+        
+        // Store input for reconciliation
+        pendingInputs.push({ direction, tick: clientTick });
+        
+        // Send input to server with tick number
+        sendInput({ type: 'direction', direction, clientTick });
+        
+        console.log(`[Client] Sent input: direction=${direction}, clientTick=${clientTick}`);
     }
 }
 
 
 /**
- * Update game state (no-op for dumb client)
+ * Update game state - run client-side prediction
  */
-function _update(_dt: number): void {
-    // Server handles all game logic
-    // Client just renders the latest state
+function _update(dt: number): void {
+    if (!predictedGame || predictedGame.getStatus() !== 'PLAYING') {
+        return;
+    }
+
+    tickAccumulator += dt * 1000; // Convert to ms
+
+    while (tickAccumulator >= TICK_INTERVAL_MS) {
+        predictedGame = predictedGame.tick();
+        tickAccumulator -= TICK_INTERVAL_MS;
+    }
 }
 
 /**
@@ -170,8 +239,16 @@ function _draw(): void {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
+    // Determine which state to render (predicted if available, otherwise server state)
+    let state: GameState | null = null;
+    if (predictedGame) {
+        state = predictedGame.serialize();
+    } else if (lastServerState) {
+        state = lastServerState;
+    }
+
     // If no state yet, show loading
-    if (!currentState) {
+    if (!state) {
         ctx.fillStyle = '#f5f5f5';
         ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
         ctx.fillStyle = '#333';
@@ -180,8 +257,6 @@ function _draw(): void {
         ctx.fillText('Connecting to server...', CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2);
         return;
     }
-
-    const state = currentState;
 
     // Clear canvas
     ctx.fillStyle = '#f5f5f5';
