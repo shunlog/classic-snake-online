@@ -34,6 +34,13 @@
             letter-spacing: 2px;
         }
 
+        .games-container {
+            display: flex;
+            gap: 20px;
+            justify-content: center;
+            align-items: flex-start;
+        }
+
         .game-wrapper {
             position: relative;
             display: inline-block;
@@ -43,7 +50,15 @@
             padding: 20px;
         }
 
-        #gameCanvas {
+        .game-wrapper h2 {
+            font-size: 1rem;
+            font-weight: 400;
+            color: #666;
+            margin-bottom: 10px;
+            text-align: center;
+        }
+
+        .game-canvas {
             display: block;
             border: 2px solid #333;
             border-radius: 4px;
@@ -88,9 +103,17 @@
 <body>
     <div class="container">
         <h1>CLASSIC SNAKE</h1>
-        <div class="game-wrapper">
-            <canvas id="gameCanvas"></canvas>
-            <div id="status">Press SPACE to start</div>
+        <div class="games-container">
+            <div class="game-wrapper">
+                <h2>Your Game</h2>
+                <canvas id="gameCanvas" class="game-canvas"></canvas>
+                <div id="status">Press SPACE to start</div>
+            </div>
+            <div class="game-wrapper">
+                <h2>Opponent</h2>
+                <canvas id="opponentCanvas" class="game-canvas"></canvas>
+                <div id="opponentStatus" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(255, 255, 255, 0.95); padding: 20px 40px; border-radius: 8px; font-size: 1.2rem; color: #333; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15); pointer-events: none; font-weight: 400;">Waiting...</div>
+            </div>
         </div>
         <div class="info">
             <div id="score">Score: 0</div>

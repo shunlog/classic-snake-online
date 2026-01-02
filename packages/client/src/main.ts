@@ -110,13 +110,22 @@ let gameLoop: GameLoop = new GameLoop({
  */
 function init(): void {
     const canvas = document.getElementById('gameCanvas') as HTMLCanvasElement;
+    const opponentCanvas = document.getElementById('opponentCanvas') as HTMLCanvasElement;
+    
     if (!canvas) {
         console.error('Canvas element not found');
+        return;
+    }
+    
+    if (!opponentCanvas) {
+        console.error('Opponent canvas element not found');
         return;
     }
 
     canvas.width = CANVAS_WIDTH;
     canvas.height = CANVAS_HEIGHT;
+    opponentCanvas.width = CANVAS_WIDTH;
+    opponentCanvas.height = CANVAS_HEIGHT;
 
     // Initialize WebSocket connection
     initWebSocket();
@@ -197,14 +206,12 @@ function _update(dt: number): void {
 }
 
 /**
- * Render the game state to canvas
+ * Draw a game state to a specific canvas
  */
-function _draw(): void {
-    const canvas = document.getElementById('gameCanvas') as HTMLCanvasElement;
+function drawGameState(canvasId: string, state: GameState): void {
+    const canvas = document.getElementById(canvasId) as HTMLCanvasElement;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
-
-    const state: GameState = getState(game);
 
     // Clear canvas
     ctx.fillStyle = '#f5f5f5';
@@ -246,6 +253,20 @@ function _draw(): void {
             CELL_SIZE - 2
         );
     });
+}
+
+/**
+ * Render the game state to canvas
+ */
+function _draw(): void {
+    const state: GameState = getState(game);
+    
+    // Draw local game
+    drawGameState('gameCanvas', state);
+    
+    // Draw opponent game (for now, just mirror the local game)
+    // This will be replaced with actual opponent state later
+    drawGameState('opponentCanvas', state);
 
     // Update score display
     const scoreElement = document.getElementById('score');
