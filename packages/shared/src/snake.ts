@@ -34,8 +34,6 @@ export interface GameState {
     readonly snake: ReadonlyArray<Position>;
     readonly food: Position;
     readonly direction: Direction;
-    readonly queuedDir1: Direction | null;
-    readonly queuedDir2: Direction | null;
     readonly status: GameStatus;
     readonly score: number;
     readonly gridWidth: number;
@@ -54,7 +52,6 @@ export interface GameState {
  *     - The snake occupies positions snake[0] (head), snake[1], ..., snake[n-1] (tail)
  *     - Food is located at position 'food'
  *     - Current movement direction is 'direction'
- *     - Next direction changes are queuedDir1, then queuedDir2 (if non-null)
  *     - Game state is 'status' (NOT_STARTED, PLAYING, or GAME_OVER)
  *     - Player score is 'score' (initially 0, +10 per food eaten)
  *     - Grid dimensions are gridWidth × gridHeight
@@ -72,6 +69,16 @@ export interface GameState {
  *   9. Elapsed time is non-negative
  *  10. No snake segment overlaps with another (except during growth)
  */
+
+/**
+ * Internal state interface (private to SnakeGame class)
+ * Includes queue directions which are implementation details
+ */
+interface InternalState extends GameState {
+    readonly queuedDir1: Direction | null;
+    readonly queuedDir2: Direction | null;
+}
+
 export class SnakeGame {
     private readonly snake: ReadonlyArray<Position>;
     private readonly food: Position;
@@ -89,7 +96,7 @@ export class SnakeGame {
     /**
      * Private constructor - use static factory methods to create instances
      */
-    private constructor(state: GameState) {
+    private constructor(state: InternalState) {
         this.snake = state.snake;
         this.food = state.food;
         this.direction = state.direction;
@@ -227,6 +234,8 @@ export class SnakeGame {
 
         return new SnakeGame({
             ...this.serialize(),
+            queuedDir1: this.queuedDir1,
+            queuedDir2: this.queuedDir2,
             status: 'PLAYING',
             startTime: Date.now(),
             elapsedTime: 0
@@ -290,13 +299,15 @@ export class SnakeGame {
             // Second slot empty
             return new SnakeGame({
                 ...this.serialize(),
+                queuedDir1: this.queuedDir1,
                 queuedDir2: newDirection
             });
         } else {
             // First slot empty
             return new SnakeGame({
                 ...this.serialize(),
-                queuedDir1: newDirection
+                queuedDir1: newDirection,
+                queuedDir2: this.queuedDir2
             });
         }
     }
@@ -338,10 +349,10 @@ export class SnakeGame {
             newHead.y < 0 || newHead.y >= this.gridHeight) {
             return new SnakeGame({
                 ...this.serialize(),
-                status: 'GAME_OVER',
-                direction: newDirection,
                 queuedDir1: newQueuedDir1,
-                queuedDir2: newQueuedDir2
+                queuedDir2: newQueuedDir2,
+                status: 'GAME_OVER',
+                direction: newDirection
             });
         }
 
@@ -369,10 +380,10 @@ export class SnakeGame {
             if (newHead.x === segment.x && newHead.y === segment.y) {
                 return new SnakeGame({
                     ...this.serialize(),
-                    status: 'GAME_OVER',
-                    direction: newDirection,
                     queuedDir1: newQueuedDir1,
-                    queuedDir2: newQueuedDir2
+                    queuedDir2: newQueuedDir2,
+                    status: 'GAME_OVER',
+                    direction: newDirection
                 });
             }
         }
@@ -442,8 +453,6 @@ export class SnakeGame {
             snake: this.snake,
             food: this.food,
             direction: this.direction,
-            queuedDir1: this.queuedDir1,
-            queuedDir2: this.queuedDir2,
             status: this.status,
             score: this.score,
             gridWidth: this.gridWidth,

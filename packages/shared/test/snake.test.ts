@@ -17,8 +17,6 @@ describe('SnakeGame ADT', () => {
             expect(state.status).toBe('NOT_STARTED');
             expect(state.score).toBe(0);
             expect(state.snake.length).toBe(1);
-            expect(state.queuedDir1).toBeNull();
-            expect(state.queuedDir2).toBeNull();
         });
 
         test('creates a new game with custom dimensions', () => {
@@ -210,47 +208,87 @@ describe('SnakeGame ADT', () => {
     });
 
     describe('queueDirection, assuming canQueueDirection', () => {
-        test('queues first direction', () => {
+        test('queues first direction and applies it on tick', () => {
             const game = SnakeGame.create().start();
+            const initialState = game.serialize();
+            const initialHead = initialState.snake[0];
+            
+            // Queue UP direction (current is RIGHT)
             const updated = game.queueDirection('UP');
-            const state = updated.serialize();
-
-            expect(state.queuedDir1).toBe('UP');
-            expect(state.queuedDir2).toBeNull();
+            
+            // After tick, snake should move UP
+            const afterTick = updated.tick();
+            const newState = afterTick.serialize();
+            const newHead = newState.snake[0];
+            
+            expect(newHead.x).toBe(initialHead.x);
+            expect(newHead.y).toBe(initialHead.y - 1);
+            expect(newState.direction).toBe('UP');
         });
 
-        test('queues two directions', () => {
+        test('queues two directions and applies them in sequence', () => {
             const game = SnakeGame.create().start();
+            const initialState = game.serialize();
+            const initialHead = initialState.snake[0];
+            
+            // Queue UP then LEFT
             const updated = game.queueDirection('UP').queueDirection('LEFT');
-            const state = updated.serialize();
-
-            expect(state.queuedDir1).toBe('UP');
-            expect(state.queuedDir2).toBe('LEFT');
+            
+            // First tick: should move UP
+            const afterFirstTick = updated.tick();
+            const firstState = afterFirstTick.serialize();
+            expect(firstState.direction).toBe('UP');
+            expect(firstState.snake[0].y).toBe(initialHead.y - 1);
+            
+            // Second tick: should move LEFT
+            const afterSecondTick = afterFirstTick.tick();
+            const secondState = afterSecondTick.serialize();
+            expect(secondState.direction).toBe('LEFT');
+            expect(secondState.snake[0].x).toBe(initialHead.x - 1);
         });
 
         test('ignores third direction when both slots full', () => {
             const game = SnakeGame.create().start();
+            
+            // Queue UP, LEFT, then try to queue DOWN (should be ignored)
             const updated = game
                 .queueDirection('UP')
                 .queueDirection('LEFT')
                 .queueDirection('DOWN');
-            const state = updated.serialize();
-
-            expect(state.queuedDir1).toBe('UP');
-            expect(state.queuedDir2).toBe('LEFT');
+            
+            // First tick: should move UP
+            const afterFirst = updated.tick();
+            expect(afterFirst.serialize().direction).toBe('UP');
+            
+            // Second tick: should move LEFT (not DOWN)
+            const afterSecond = afterFirst.tick();
+            expect(afterSecond.serialize().direction).toBe('LEFT');
+            
+            // Third tick: should continue LEFT (DOWN was ignored)
+            const afterThird = afterSecond.tick();
+            expect(afterThird.serialize().direction).toBe('LEFT');
         });
 
-        test('queues two directions, tick, queue another direction', () => {
+        test('processes queue correctly after tick', () => {
             const game = SnakeGame.create().start();
+            
+            // Queue UP and LEFT, tick once, then queue RIGHT
             const updated = game.queueDirection('UP')
                 .queueDirection('LEFT')
-                .tick()
-                .queueDirection('RIGHT');
-            const state = updated.serialize();
-
-            expect(state.queuedDir1).toBe('LEFT');
-            // RIGHT was ignored because opposite of LEFT which was next
-            expect(state.queuedDir2).toBeNull();
+                .tick()  // Processes UP, LEFT moves to first slot
+                .queueDirection('RIGHT');  // Try to queue RIGHT
+            
+            // Current direction is UP, first queued is LEFT
+            // RIGHT is opposite of LEFT (next direction in queue)
+            // So RIGHT should be rejected
+            
+            // After tick, should move LEFT
+            const afterTick = updated.tick();
+            expect(afterTick.serialize().direction).toBe('LEFT');
+            
+            // Another tick should continue LEFT (RIGHT was not queued)
+            const afterAnother = afterTick.tick();
+            expect(afterAnother.serialize().direction).toBe('LEFT');
         });
     });
 
@@ -282,10 +320,7 @@ describe('SnakeGame ADT', () => {
             // Should move up
             expect(head2.x).toBe(head1.x);
             expect(head2.y).toBe(head1.y - 1);
-
-            // Queue should be empty
-            expect(state2.queuedDir1).toBeNull();
-            expect(state2.queuedDir2).toBeNull();
+            expect(state2.direction).toBe('UP');
         });
 
         test('removes tail when not eating food', () => {
@@ -537,8 +572,6 @@ describe('SnakeGame ADT', () => {
             expect(state).toHaveProperty('snake');
             expect(state).toHaveProperty('food');
             expect(state).toHaveProperty('direction');
-            expect(state).toHaveProperty('queuedDir1');
-            expect(state).toHaveProperty('queuedDir2');
             expect(state).toHaveProperty('status');
             expect(state).toHaveProperty('score');
             expect(state).toHaveProperty('gridWidth');
@@ -604,16 +637,24 @@ describe('SnakeGame ADT', () => {
 
         test('maintains queue size limit', () => {
             const game = SnakeGame.create().start();
+            // Queue UP, LEFT, then try DOWN and RIGHT (should be ignored)
             const updated = game
                 .queueDirection('UP')
                 .queueDirection('LEFT')
                 .queueDirection('DOWN')
                 .queueDirection('RIGHT');
 
-            const state = updated.serialize();
-            // Should have at most 2 queued directions
-            const queuedCount = (state.queuedDir1 !== null ? 1 : 0) + (state.queuedDir2 !== null ? 1 : 0);
-            expect(queuedCount).toBeLessThanOrEqual(2);
+            // Verify queue limit by checking movement after 3 ticks
+            // Should move: RIGHT (initial) -> UP -> LEFT -> LEFT (not DOWN/RIGHT)
+            const afterFirst = updated.tick();
+            expect(afterFirst.serialize().direction).toBe('UP');
+            
+            const afterSecond = afterFirst.tick();
+            expect(afterSecond.serialize().direction).toBe('LEFT');
+            
+            const afterThird = afterSecond.tick();
+            // Should continue LEFT, proving DOWN and RIGHT were not queued
+            expect(afterThird.serialize().direction).toBe('LEFT');
         });
     });
 });
