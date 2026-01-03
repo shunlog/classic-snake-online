@@ -11,6 +11,13 @@
  */
 
 import { SnakeGame, Direction, GameState } from '@snake/shared';
+import type {
+    ClientMessage,
+    JoinMessage,
+    TickMessage,
+    ServerMessage,
+    PlayerInfo
+} from '@snake/shared';
 import {
     tick,
     queueDirection,
@@ -37,6 +44,55 @@ let dtAcc = 0;  // seconds, accumulated since last snake tick
 // WebSocket connection
 let ws: WebSocket | null = null;
 const pendingMessages = new Map<number, number>(); // tickCount -> timestamp
+let playerId: string | null = null;
+let players: PlayerInfo[] = [];
+
+/**
+ * Send a typed message to the server
+ */
+function sendMessage(message: ClientMessage): void {
+    if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify(message));
+    }
+}
+
+/**
+ * Parse incoming message data into a typed ServerMessage
+ */
+function parseMessage(data: string): ServerMessage {
+    return JSON.parse(data) as ServerMessage;
+}
+
+/**
+ * Handle incoming server message
+ */
+function handleMessage(message: ServerMessage): void {
+    switch (message.type) {
+        case 'joined':
+            playerId = message.playerId;
+            console.log(`Joined as ${message.name} (${playerId})`);
+            break;
+
+        case 'players':
+            players = message.players;
+            updatePlayersList();
+            break;
+
+        case 'tick':
+            const sendTime = pendingMessages.get(message.tickCount);
+            if (sendTime !== undefined) {
+                const latency = performance.now() - sendTime;
+                console.log(`${message.tickCount == game.getTickCount()} Tick ${message.tickCount}, current ${game.getTickCount()} round-trip: ${latency.toFixed(2)}ms`);
+                pendingMessages.delete(message.tickCount);
+            }
+            break;
+
+        case 'error':
+            console.error('Server error:', message.message);
+            updateConnectionStatus(message.message);
+            break;
+    }
+}
 
 /**
  * Initialize WebSocket connection
@@ -46,19 +102,16 @@ function initWebSocket(): void {
     
     ws.onopen = () => {
         console.log('WebSocket connected to server');
+        // Send join message
+        const playerName = `Player ${Math.floor(Math.random() * 1000)}`;
+        const joinMsg: JoinMessage = { type: 'join', name: playerName };
+        sendMessage(joinMsg);
     };
     
     ws.onmessage = (event) => {
         try {
-            const message = JSON.parse(event.data);
-            if (message.type === 'tick' && typeof message.tickCount === 'number') {
-                const sendTime = pendingMessages.get(message.tickCount);
-                if (sendTime !== undefined) {
-                    const latency = performance.now() - sendTime;
-                    console.log(`${message.tickCount == game.getTickCount()} Tick ${message.tickCount}, current ${game.getTickCount()} round-trip: ${latency.toFixed(2)}ms`);
-                    pendingMessages.delete(message.tickCount);
-                }
-            }
+            const message = parseMessage(event.data);
+            handleMessage(message);
         } catch (error) {
             console.error('Error parsing WebSocket message:', error);
         }
@@ -70,6 +123,10 @@ function initWebSocket(): void {
     
     ws.onclose = () => {
         console.log('WebSocket disconnected');
+        playerId = null;
+        players = [];
+        updatePlayersList();
+        updateConnectionStatus('Disconnected');
         // Attempt to reconnect after 2 seconds
         setTimeout(initWebSocket, 2000);
     };
@@ -81,7 +138,35 @@ function initWebSocket(): void {
 function sendTickMessage(tickCount: number): void {
     if (ws && ws.readyState === WebSocket.OPEN) {
         pendingMessages.set(tickCount, performance.now());
-        ws.send(JSON.stringify({ type: 'tick', tickCount }));
+        const tickMsg: TickMessage = { type: 'tick', tickCount };
+        sendMessage(tickMsg);
+    }
+}
+
+/**
+ * Update the players list in the UI
+ */
+function updatePlayersList(): void {
+    const playersListElement = document.getElementById('playersList');
+    if (!playersListElement) return;
+
+    if (players.length === 0) {
+        playersListElement.innerHTML = '<li>No players connected</li>';
+    } else {
+        playersListElement.innerHTML = players.map(p => {
+            const isMe = p.id === playerId;
+            return `<li${isMe ? ' class="me"' : ''}>${p.name}${isMe ? ' (You)' : ''}</li>`;
+        }).join('');
+    }
+}
+
+/**
+ * Update connection status in the UI
+ */
+function updateConnectionStatus(status: string): void {
+    const statusElement = document.getElementById('connectionStatus');
+    if (statusElement) {
+        statusElement.textContent = status;
     }
 }
 
