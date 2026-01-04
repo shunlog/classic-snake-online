@@ -17,7 +17,8 @@ export interface PlayerInfo {
  * Messages from client to server
  */
 export type ClientMessage =
-  | JoinMessage;
+  | JoinMessage
+  | TimeSyncResponseMessage;
 
 /**
  * Messages from server to client
@@ -27,7 +28,8 @@ export type ServerMessage =
   | PlayersListMessage
   | GameStartMessage
   | TickMessage
-  | ErrorMessage;
+  | ErrorMessage
+  | TimeSyncRequestMessage;
 
 /**
  * Client requests to join the lobby
@@ -68,6 +70,17 @@ export interface TickMessage {
   tickCount: number;
   playerState: SnakeGame;
   opponentState: SnakeGame;
+}
+
+export interface TimeSyncRequestMessage {
+  type: 'time_sync_request';
+  requestId: string;
+}
+
+export interface TimeSyncResponseMessage {
+  type: 'time_sync_response';
+  requestId: string;
+  clientTimeMs: number;
 }
 
 /**

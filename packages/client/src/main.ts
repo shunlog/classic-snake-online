@@ -11,7 +11,6 @@ import { SnakeGame, Direction } from '@snake/shared';
 import type {
     ClientMessage,
     JoinMessage,
-    TickMessage,
     ServerMessage,
     PlayerInfo
 } from '@snake/shared';
@@ -74,6 +73,14 @@ function handleMessage(message: ServerMessage): void {
                 console.log(`${message.tickCount == game.getTickCount()} Tick ${message.tickCount}, current ${game.getTickCount()} round-trip: ${latency.toFixed(2)}ms`);
                 pendingMessages.delete(message.tickCount);
             }
+            break;
+
+        case 'time_sync_request':
+            sendMessage({
+                type: 'time_sync_response',
+                requestId: message.requestId,
+                clientTimeMs: performance.now()
+            });
             break;
 
         case 'error':

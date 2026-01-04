@@ -6,13 +6,4 @@
 export { SnakeGame, Direction, GameStatus } from './snake.js';
 export type { Position } from './snake.js';
 
-export type {
-  ClientMessage,
-  ServerMessage,
-  JoinMessage,
-  JoinedMessage,
-  PlayersListMessage,
-  TickMessage,
-  ErrorMessage,
-  PlayerInfo
-} from './messages.js';
+export * from './messages.js';

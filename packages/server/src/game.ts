@@ -2,21 +2,25 @@
  * Game session management for the Classic Snake WebSocket server
  */
 
+import { performance } from 'node:perf_hooks';
 import type {
   ClientMessage,
   ServerMessage,
   JoinedMessage,
   PlayersListMessage,
   ErrorMessage,
-  TickMessage
+//   TickMessage,
+  TimeSyncRequestMessage,
+  TimeSyncResponseMessage
 } from '@snake/shared';
 
 const MAX_PLAYERS = 2;
 // average latency + some slack
 // represents how much later the server ticks than the client.
 // Inputs for a tick should be received before this time.
-const CUTOFF_TIME_MS = 150;
+// const CUTOFF_TIME_MS = 150;
 let tickCount = 0;
+const TIME_SYNC_TIMEOUT_MS = 2000;
 
 export type SendMessage = (message: ServerMessage) => void;
 
@@ -38,6 +42,22 @@ interface PlayerSession {
 
 const players = new Map<string, PlayerSession>();
 
+interface PendingTimeSync {
+  connectionId: string;
+  startTime: number;
+  resolve: (result: TimeSyncResult) => void;
+  reject: (error: Error) => void;
+  timeoutId: ReturnType<typeof setTimeout>;
+}
+
+const pendingTimeSync = new Map<string, PendingTimeSync>();
+
+export interface TimeSyncResult {
+  requestId: string;
+  latencyMs: number;
+  clientTimeMs: number;
+}
+
 export function parseClientMessage(data: Buffer): ClientMessage {
   try {
     return JSON.parse(data.toString()) as ClientMessage;
@@ -49,14 +69,49 @@ export function parseClientMessage(data: Buffer): ClientMessage {
 export function handleTick(): void {
   tickCount += 1;
 
-  const tickMessage: TickMessage = {
-    type: 'tick',
-    tickCount
+//   const tickMessage: TickMessage = {
+//     type: 'tick',
+//     tickCount
+//   };
+
+//   players.forEach(player => {
+//     player.send(tickMessage);
+//   });
+}
+
+export function requestTimeSync(connectionId: string): Promise<TimeSyncResult> {
+  const player = players.get(connectionId);
+  if (!player) {
+    return Promise.reject(new Error(`No player for connection ${connectionId}`));
+  }
+
+  const requestId = generateRequestId(connectionId);
+  const startTime = performance.now();
+  const requestMessage: TimeSyncRequestMessage = {
+    type: 'time_sync_request',
+    requestId
   };
 
-  players.forEach(player => {
-    player.send(tickMessage);
+  return new Promise((resolve, reject) => {
+    const timeoutId = setTimeout(() => {
+      pendingTimeSync.delete(requestId);
+      reject(new Error(`Time sync request ${requestId} timed out`));
+    }, TIME_SYNC_TIMEOUT_MS);
+
+    pendingTimeSync.set(requestId, {
+      connectionId,
+      startTime,
+      resolve,
+      reject,
+      timeoutId
+    });
+
+    player.send(requestMessage);
   });
+}
+
+function generateRequestId(connectionId: string): string {
+  return `${connectionId}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
 function broadcastPlayerList(): void {
@@ -87,11 +142,11 @@ export function handleConnection(connectionId: string, sendMsg: SendMessage): bo
   return true;
 }
 
-export function handleMessage(
+export async function handleMessage(
   message: ClientMessage,
   connectionId: string,
   sendMsg: SendMessage
-): void {
+): Promise<void> {
   switch (message.type) {
     case 'join': {
       const playerName = message.name || `Player ${players.size + 1}`;
@@ -112,13 +167,41 @@ export function handleMessage(
       sendMsg(joinedMsg);
 
       broadcastPlayerList();
+
+        try {
+            let res = await requestTimeSync(connectionId)
+            console.log(`Time sync result for ${connectionId}:`, res);
+        } catch (error) {
+            console.error(`Time sync failed for ${connectionId}:`, error);
+        }
+
       break;
     }
 
-    case 'tick':
-      sendMsg(message);
+    case 'time_sync_response':
+      handleTimeSyncResponse(connectionId, message);
       break;
   }
+}
+
+function handleTimeSyncResponse(
+  connectionId: string,
+  message: TimeSyncResponseMessage
+): void {
+  const pending = pendingTimeSync.get(message.requestId);
+  if (!pending || pending.connectionId !== connectionId) {
+    return;
+  }
+
+  pendingTimeSync.delete(message.requestId);
+  clearTimeout(pending.timeoutId);
+
+  const latencyMs = performance.now() - pending.startTime;
+  pending.resolve({
+    requestId: message.requestId,
+    latencyMs,
+    clientTimeMs: message.clientTimeMs
+  });
 }
 
 export function handleClose(connectionId: string): void {
@@ -129,8 +212,21 @@ export function handleClose(connectionId: string): void {
 
     broadcastPlayerList();
   }
+
+  rejectPendingSyncs(connectionId, 'Connection closed');
 }
 
 export function handleError(connectionId: string): void {
   console.error(`WebSocket error on connection ${connectionId}`);
+  rejectPendingSyncs(connectionId, 'Connection error');
+}
+
+function rejectPendingSyncs(connectionId: string, reason: string): void {
+  pendingTimeSync.forEach((pending, requestId) => {
+    if (pending.connectionId === connectionId) {
+      clearTimeout(pending.timeoutId);
+      pending.reject(new Error(`${reason} before time sync completed`));
+      pendingTimeSync.delete(requestId);
+    }
+  });
 }
