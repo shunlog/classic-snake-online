@@ -53,6 +53,32 @@ describe('SnakeGame ADT', () => {
             expect(game.getSnake().length).toBe(1);
         });
 
+        test('creates snake with custom length', () => {
+            const game = SnakeGame.create(20, 20, 3);
+
+            expect(game.getSnake().length).toBe(3);
+            
+            // Head should be at center
+            const snake = game.getSnake();
+            expect(snake[0].x).toBe(10);
+            expect(snake[0].y).toBe(10);
+            
+            // Body should extend to the left
+            expect(snake[1].x).toBe(9);
+            expect(snake[1].y).toBe(10);
+            expect(snake[2].x).toBe(8);
+            expect(snake[2].y).toBe(10);
+        });
+
+        test('throws error for initial length less than 1', () => {
+            expect(() => SnakeGame.create(20, 20, 0)).toThrow('Initial length must be at least 1');
+            expect(() => SnakeGame.create(20, 20, -1)).toThrow('Initial length must be at least 1');
+        });
+
+        test('throws error if initial length is too long for grid', () => {
+            expect(() => SnakeGame.create(5, 5, 10)).toThrow('Initial length 10 is too long for grid width 5');
+        });
+
         test('food is not on any snake segment for longer snake', () => {
             const game = SnakeGame.create(10, 10);
             const food = game.getFood();

@@ -140,10 +140,15 @@ export class SnakeGame {
      * 
      * @param gridWidth - Width of the grid
      * @param gridHeight - Height of the grid
+     * @param initialLength - Initial length of the snake (default: 1)
      */
-    private constructor(gridWidth: number, gridHeight: number) {
+    private constructor(gridWidth: number, gridHeight: number, initialLength: number = 1) {
         if (gridWidth <= 0 || gridHeight <= 0) {
             throw new Error('Grid dimensions must be positive');
+        }
+        
+        if (initialLength < 1) {
+            throw new Error('Initial length must be at least 1');
         }
         
         this.gridWidth = gridWidth;
@@ -153,7 +158,15 @@ export class SnakeGame {
         const centerX = Math.floor(gridWidth / 2);
         const centerY = Math.floor(gridHeight / 2);
         
-        this.snake = [{ x: centerX, y: centerY }];
+        // Create snake with head at center, body extending to the left
+        this.snake = [];
+        for (let i = 0; i < initialLength; i++) {
+            const segmentX = centerX - i;
+            if (segmentX < 0) {
+                throw new Error(`Initial length ${initialLength} is too long for grid width ${gridWidth}`);
+            }
+            this.snake.push({ x: segmentX, y: centerY });
+        }
         this.direction = 'RIGHT';
         this.queuedDir1 = null;
         this.queuedDir2 = null;
@@ -172,10 +185,11 @@ export class SnakeGame {
      * 
      * @param gridWidth - Width of the game grid (default: 20)
      * @param gridHeight - Height of the game grid (default: 20)
+     * @param initialLength - Initial length of the snake (default: 1)
      * @returns A new SnakeGame instance in NOT_STARTED state
      */
-    public static create(gridWidth: number = 20, gridHeight: number = 20): SnakeGame {
-        return new SnakeGame(gridWidth, gridHeight);
+    public static create(gridWidth: number = 20, gridHeight: number = 20, initialLength: number = 1): SnakeGame {
+        return new SnakeGame(gridWidth, gridHeight, initialLength);
     }
 
     /**

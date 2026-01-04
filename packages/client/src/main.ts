@@ -23,7 +23,7 @@ const CANVAS_HEIGHT = 400;
 const CELL_SIZE = 20;
 const GRID_WIDTH = CANVAS_WIDTH / CELL_SIZE;  // 20
 const GRID_HEIGHT = CANVAS_HEIGHT / CELL_SIZE; // 20
-// TODO const SNAKE_LENGTH = 4; // Initial snake length
+const SNAKE_LENGTH = 4; // Initial snake length
 
 // Tick duration when the snake moves (seconds)
 const SNAKE_TICK = 0.2; // 200 ms
@@ -164,7 +164,7 @@ let game: SnakeGame;
 resetGame();
 
 function resetGame(): void {
-    game = SnakeGame.create(GRID_WIDTH, GRID_HEIGHT);
+    game = SnakeGame.create(GRID_WIDTH, GRID_HEIGHT, SNAKE_LENGTH);
     dtAcc = 0;
 }
 
