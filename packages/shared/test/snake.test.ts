@@ -9,7 +9,7 @@ import { Direction, SnakeGame } from '../src/snake.js';
 describe('SnakeGame ADT', () => {
     describe('create', () => {
         test('creates a new game with default dimensions', () => {
-            const game = SnakeGame.create();
+            const game = new SnakeGame();
 
             expect(game.getGridWidth()).toBe(20);
             expect(game.getGridHeight()).toBe(20);
@@ -19,14 +19,14 @@ describe('SnakeGame ADT', () => {
         });
 
         test('creates a new game with custom dimensions', () => {
-            const game = SnakeGame.create(30, 25);
+            const game = new SnakeGame(30, 25);
 
             expect(game.getGridWidth()).toBe(30);
             expect(game.getGridHeight()).toBe(25);
         });
 
         test('creates snake at center position', () => {
-            const game = SnakeGame.create(20, 20);
+            const game = new SnakeGame(20, 20);
             const head = game.getSnake()[0];
 
             expect(head.x).toBe(10);
@@ -34,7 +34,7 @@ describe('SnakeGame ADT', () => {
         });
 
         test('food is not on initial snake position', () => {
-            const game = SnakeGame.create();
+            const game = new SnakeGame();
             const head = game.getSnake()[0];
             const food = game.getFood();
 
@@ -42,19 +42,19 @@ describe('SnakeGame ADT', () => {
         });
 
         test('initial direction is RIGHT', () => {
-            const game = SnakeGame.create();
+            const game = new SnakeGame();
 
             expect(game.getDirection()).toBe('RIGHT');
         });
 
         test('creates snake with default length of 1', () => {
-            const game = SnakeGame.create();
+            const game = new SnakeGame();
 
             expect(game.getSnake().length).toBe(1);
         });
 
         test('creates snake with custom length', () => {
-            const game = SnakeGame.create(20, 20, 3);
+            const game = new SnakeGame(20, 20, 3);
 
             expect(game.getSnake().length).toBe(3);
             
@@ -71,16 +71,16 @@ describe('SnakeGame ADT', () => {
         });
 
         test('throws error for initial length less than 1', () => {
-            expect(() => SnakeGame.create(20, 20, 0)).toThrow('Initial length must be at least 1');
-            expect(() => SnakeGame.create(20, 20, -1)).toThrow('Initial length must be at least 1');
+            expect(() => new SnakeGame(20, 20, 0)).toThrow('Initial length must be at least 1');
+            expect(() => new SnakeGame(20, 20, -1)).toThrow('Initial length must be at least 1');
         });
 
         test('throws error if initial length is too long for grid', () => {
-            expect(() => SnakeGame.create(5, 5, 10)).toThrow('Initial length 10 is too long for grid width 5');
+            expect(() => new SnakeGame(5, 5, 10)).toThrow('Initial length 10 is too long for grid width 5');
         });
 
         test('food is not on any snake segment for longer snake', () => {
-            const game = SnakeGame.create(10, 10);
+            const game = new SnakeGame(10, 10);
             const food = game.getFood();
             const snake = game.getSnake();
 
@@ -94,7 +94,7 @@ describe('SnakeGame ADT', () => {
 
     describe('start', () => {
         test('changes status from NOT_STARTED to PLAYING', () => {
-            const game = SnakeGame.create();
+            const game = new SnakeGame();
             expect(game.getStatus()).toBe('NOT_STARTED');
             
             game.start();
@@ -102,14 +102,14 @@ describe('SnakeGame ADT', () => {
         });
 
         test('sets startTime when starting', () => {
-            const game = SnakeGame.create();
+            const game = new SnakeGame();
             game.start();
 
             expect(game.getStartTime()).toBeGreaterThan(0);
         });
 
         test('starting already started game does nothing', () => {
-            const game = SnakeGame.create();
+            const game = new SnakeGame();
             game.start();
             const startTime = game.getStartTime();
             
@@ -120,26 +120,26 @@ describe('SnakeGame ADT', () => {
 
     describe('canQueueDirection', () => {
         test('returns true for valid direction when first slot empty', () => {
-            const game = SnakeGame.create();
+            const game = new SnakeGame();
             game.start(); // starts with RIGHT
             expect(game.canQueueDirection('UP')).toBe(true);
             expect(game.canQueueDirection('DOWN')).toBe(true);
         });
 
         test('returns false for opposite direction', () => {
-            const game = SnakeGame.create();
+            const game = new SnakeGame();
             game.start(); // starts with RIGHT
             expect(game.canQueueDirection('LEFT')).toBe(false);
         });
 
         test('returns false for duplicate of current direction', () => {
-            const game = SnakeGame.create();
+            const game = new SnakeGame();
             game.start(); // starts with RIGHT
             expect(game.canQueueDirection('RIGHT')).toBe(false);
         });
 
         test('returns true for valid second direction', () => {
-            const game = SnakeGame.create();
+            const game = new SnakeGame();
             game.start();
             game.queueDirection('UP'); // first slot has UP
             expect(game.canQueueDirection('LEFT')).toBe(true);
@@ -147,21 +147,21 @@ describe('SnakeGame ADT', () => {
         });
 
         test('returns false for opposite of first queued direction', () => {
-            const game = SnakeGame.create();
+            const game = new SnakeGame();
             game.start();
             game.queueDirection('UP'); // first slot has UP
             expect(game.canQueueDirection('DOWN')).toBe(false);
         });
 
         test('returns false for duplicate of first queued direction', () => {
-            const game = SnakeGame.create();
+            const game = new SnakeGame();
             game.start();
             game.queueDirection('UP'); // first slot has UP
             expect(game.canQueueDirection('UP')).toBe(false);
         });
 
         test('returns false when both slots full', () => {
-            const game = SnakeGame.create();
+            const game = new SnakeGame();
             game.start();
             game.queueDirection('UP');
             game.queueDirection('LEFT');
@@ -170,12 +170,12 @@ describe('SnakeGame ADT', () => {
         });
 
         test('returns false when game not started', () => {
-            const game = SnakeGame.create(); // NOT_STARTED
+            const game = new SnakeGame(); // NOT_STARTED
             expect(game.canQueueDirection('UP')).toBe(false);
         });
 
         test('returns false when game over', () => {
-            const game = SnakeGame.create(3, 3);
+            const game = new SnakeGame(3, 3);
             game.start();
             game.queueDirection('LEFT');
             for (let i = 0; i < 5; i++) {
@@ -189,7 +189,7 @@ describe('SnakeGame ADT', () => {
 
     describe('queueDirection, assuming canQueueDirection', () => {
         test('queues first direction and applies it on tick', () => {
-            const game = SnakeGame.create();
+            const game = new SnakeGame();
             game.start();
             const initialHead = game.getSnake()[0];
             
@@ -206,7 +206,7 @@ describe('SnakeGame ADT', () => {
         });
 
         test('queues two directions and applies them in sequence', () => {
-            const game = SnakeGame.create();
+            const game = new SnakeGame();
             game.start();
             const initialHead = game.getSnake()[0];
             
@@ -226,7 +226,7 @@ describe('SnakeGame ADT', () => {
         });
 
         test('ignores third direction when both slots full', () => {
-            const game = SnakeGame.create();
+            const game = new SnakeGame();
             game.start();
             
             // Queue UP, LEFT, then try to queue DOWN (should be ignored)
@@ -248,7 +248,7 @@ describe('SnakeGame ADT', () => {
         });
 
         test('processes queue correctly after tick', () => {
-            const game = SnakeGame.create();
+            const game = new SnakeGame();
             game.start();
             
             // Queue UP and LEFT, tick once, then queue RIGHT
@@ -273,7 +273,7 @@ describe('SnakeGame ADT', () => {
 
     describe('tick', () => {
         test('moves snake in current direction', () => {
-            const game = SnakeGame.create();
+            const game = new SnakeGame();
             game.start();
             const head1 = game.getSnake()[0];
 
@@ -286,7 +286,7 @@ describe('SnakeGame ADT', () => {
         });
 
         test('processes direction from input queue', () => {
-            const game = SnakeGame.create();
+            const game = new SnakeGame();
             game.start();
             game.queueDirection('UP');
             const head1 = game.getSnake()[0];
@@ -301,7 +301,7 @@ describe('SnakeGame ADT', () => {
         });
 
         test('removes tail when not eating food', () => {
-            const game = SnakeGame.create();
+            const game = new SnakeGame();
             game.start();
             const length1 = game.getSnake().length;
 
@@ -313,7 +313,7 @@ describe('SnakeGame ADT', () => {
 
         test('grows snake when eating food', () => {
             // Create game and manipulate to put food in front of snake
-            const game = SnakeGame.create(5, 5);
+            const game = new SnakeGame(5, 5);
             game.start();
 
             // We need to tick until snake eats food by chance, or we can test indirectly
@@ -337,7 +337,7 @@ describe('SnakeGame ADT', () => {
         });
 
         test('increases score when eating food', () => {
-            const game = SnakeGame.create(5, 5);
+            const game = new SnakeGame(5, 5);
             game.start();
             let initialScore = game.getScore();
 
@@ -355,7 +355,7 @@ describe('SnakeGame ADT', () => {
         });
 
         test('generates new food after eating', () => {
-            const game = SnakeGame.create(5, 5);
+            const game = new SnakeGame(5, 5);
             game.start();
             let oldFood = game.getFood();
             let oldScore = game.getScore();
@@ -375,7 +375,7 @@ describe('SnakeGame ADT', () => {
         });
 
         test('detects wall collision', () => {
-            const game = SnakeGame.create(5, 5);
+            const game = new SnakeGame(5, 5);
             game.start();
 
             // Move snake left until it hits wall
@@ -392,7 +392,7 @@ describe('SnakeGame ADT', () => {
 
         test('detects self-collision', () => {
             // Create a small grid and manually create a scenario for self-collision
-            const game = SnakeGame.create(5, 5);
+            const game = new SnakeGame(5, 5);
             game.start();
             
             // Create a specific pattern that will cause self-collision
@@ -415,7 +415,7 @@ describe('SnakeGame ADT', () => {
 
         test('allows movement into previous tail position', () => {
             // Create a specific scenario to test tail movement
-            const game = SnakeGame.create(5, 5);
+            const game = new SnakeGame(5, 5);
             game.start();
             const initialHead = game.getSnake()[0];
             
@@ -447,7 +447,7 @@ describe('SnakeGame ADT', () => {
         });
 
         test('updates elapsed time', () => {
-            const game = SnakeGame.create();
+            const game = new SnakeGame();
             game.start();
 
             // Wait a bit
@@ -460,7 +460,7 @@ describe('SnakeGame ADT', () => {
         });
 
         test('does nothing when game not started', () => {
-            const game = SnakeGame.create();
+            const game = new SnakeGame();
             const headBefore = game.getSnake()[0];
             
             game.tick();
@@ -471,7 +471,7 @@ describe('SnakeGame ADT', () => {
         });
 
         test('does nothing when game over', () => {
-            const game = SnakeGame.create(3, 3);
+            const game = new SnakeGame(3, 3);
             game.start();
 
             // Force game over
@@ -498,7 +498,7 @@ describe('SnakeGame ADT', () => {
 
     describe('getStatus', () => {
         test('returns current game status', () => {
-            const game = SnakeGame.create();
+            const game = new SnakeGame();
             expect(game.getStatus()).toBe('NOT_STARTED');
 
             game.start();
@@ -508,14 +508,14 @@ describe('SnakeGame ADT', () => {
 
     describe('getScore', () => {
         test('returns current score', () => {
-            const game = SnakeGame.create();
+            const game = new SnakeGame();
             expect(game.getScore()).toBe(0);
         });
     });
 
     describe('getElapsedTime', () => {
         test('returns elapsed time', () => {
-            const game = SnakeGame.create();
+            const game = new SnakeGame();
             game.start();
             expect(game.getElapsedTime()).toBe(0);
         });
@@ -523,18 +523,18 @@ describe('SnakeGame ADT', () => {
 
     describe('getTickCount', () => {
         test('returns zero for new game', () => {
-            const game = SnakeGame.create();
+            const game = new SnakeGame();
             expect(game.getTickCount()).toBe(0);
         });
 
         test('returns zero for just-started game', () => {
-            const game = SnakeGame.create();
+            const game = new SnakeGame();
             game.start();
             expect(game.getTickCount()).toBe(0);
         });
 
         test('increments with each tick', () => {
-            const game = SnakeGame.create();
+            const game = new SnakeGame();
             game.start();
             expect(game.getTickCount()).toBe(0);
 
@@ -551,7 +551,7 @@ describe('SnakeGame ADT', () => {
 
     describe('getters and defensive copying', () => {
         test('getSnake returns defensive copy', () => {
-            const game = SnakeGame.create();
+            const game = new SnakeGame();
             const snake1 = game.getSnake();
             const snake2 = game.getSnake();
 
@@ -563,7 +563,7 @@ describe('SnakeGame ADT', () => {
         });
 
         test('getFood returns defensive copy', () => {
-            const game = SnakeGame.create();
+            const game = new SnakeGame();
             const food1 = game.getFood();
             const food2 = game.getFood();
 
@@ -575,7 +575,7 @@ describe('SnakeGame ADT', () => {
         });
 
         test('modifying returned snake does not affect game state', () => {
-            const game = SnakeGame.create();
+            const game = new SnakeGame();
             const snake = game.getSnake();
             const originalLength = snake.length;
             
@@ -587,7 +587,7 @@ describe('SnakeGame ADT', () => {
         });
 
         test('modifying returned food does not affect game state', () => {
-            const game = SnakeGame.create();
+            const game = new SnakeGame();
             const food = game.getFood();
             const originalX = food.x;
             
@@ -601,14 +601,14 @@ describe('SnakeGame ADT', () => {
 
     describe('invariant checking', () => {
         test('maintains snake has at least one segment', () => {
-            const game = SnakeGame.create();
+            const game = new SnakeGame();
             game.start();
 
             expect(game.getSnake().length).toBeGreaterThanOrEqual(1);
         });
 
         test('maintains all positions within bounds', () => {
-            const game = SnakeGame.create(10, 10);
+            const game = new SnakeGame(10, 10);
             game.start();
 
             // Run several ticks
@@ -633,7 +633,7 @@ describe('SnakeGame ADT', () => {
         });
 
         test('maintains food not on snake', () => {
-            const game = SnakeGame.create();
+            const game = new SnakeGame();
             game.start();
 
             const snakePositions = new Set(game.getSnake().map(pos => `${pos.x},${pos.y}`));
@@ -644,7 +644,7 @@ describe('SnakeGame ADT', () => {
         });
 
         test('maintains non-negative score', () => {
-            const game = SnakeGame.create();
+            const game = new SnakeGame();
             game.start();
 
             for (let i = 0; i < 10; i++) {
@@ -654,7 +654,7 @@ describe('SnakeGame ADT', () => {
         });
 
         test('maintains queue size limit', () => {
-            const game = SnakeGame.create();
+            const game = new SnakeGame();
             game.start();
             // Queue UP, LEFT, then try DOWN and RIGHT (should be ignored)
             game.queueDirection('UP');

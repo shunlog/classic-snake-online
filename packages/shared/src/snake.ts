@@ -136,13 +136,13 @@ export class SnakeGame {
     }
 
     /**
-     * Private constructor - use static factory methods to create instances
+     * Create a new SnakeGame instance
      * 
-     * @param gridWidth - Width of the grid
-     * @param gridHeight - Height of the grid
+     * @param gridWidth - Width of the grid (default: 20)
+     * @param gridHeight - Height of the grid (default: 20)
      * @param initialLength - Initial length of the snake (default: 1)
      */
-    private constructor(gridWidth: number, gridHeight: number, initialLength: number = 1) {
+    constructor(gridWidth: number = 20, gridHeight: number = 20, initialLength: number = 1) {
         if (gridWidth <= 0 || gridHeight <= 0) {
             throw new Error('Grid dimensions must be positive');
         }
@@ -178,18 +178,6 @@ export class SnakeGame {
         this.food = SnakeGame.generateFood(this.snake, this.gridWidth, this.gridHeight);
         
         this.checkRep();
-    }
-
-    /**
-     * Create a new game instance with default settings
-     * 
-     * @param gridWidth - Width of the game grid (default: 20)
-     * @param gridHeight - Height of the game grid (default: 20)
-     * @param initialLength - Initial length of the snake (default: 1)
-     * @returns A new SnakeGame instance in NOT_STARTED state
-     */
-    public static create(gridWidth: number = 20, gridHeight: number = 20, initialLength: number = 1): SnakeGame {
-        return new SnakeGame(gridWidth, gridHeight, initialLength);
     }
 
     /**

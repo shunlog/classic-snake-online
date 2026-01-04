@@ -164,7 +164,7 @@ let game: SnakeGame;
 resetGame();
 
 function resetGame(): void {
-    game = SnakeGame.create(GRID_WIDTH, GRID_HEIGHT, SNAKE_LENGTH);
+    game = new SnakeGame(GRID_WIDTH, GRID_HEIGHT, SNAKE_LENGTH);
     dtAcc = 0;
 }
 
