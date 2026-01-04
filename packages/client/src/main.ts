@@ -5,9 +5,6 @@
  * - Managing the game loop
  * - Handling user input
  * - Rendering to HTML canvas
- * 
- * IMPORTANT: This module ONLY calls functions from commands.ts
- * It never calls SnakeGame methods directly.
  */
 
 import { SnakeGame, Direction, GameState } from '@snake/shared';
@@ -18,14 +15,6 @@ import type {
     ServerMessage,
     PlayerInfo
 } from '@snake/shared';
-import {
-    tick,
-    queueDirection,
-    newGame,
-    start,
-    getState,
-    getStatus
-} from './commands.js';
 import { GameLoop } from './gameLoop.js';
 
 // Canvas and rendering constants
@@ -175,12 +164,12 @@ let game: SnakeGame;
 resetGame();
 
 function resetGame(): void {
-    game = newGame(GRID_WIDTH, GRID_HEIGHT, SNAKE_LENGTH);
+    game = SnakeGame.create(GRID_WIDTH, GRID_HEIGHT, SNAKE_LENGTH);
     dtAcc = 0;
 }
 
 function startGame(): void {
-    game = start(game);
+    game = game.start();
 }
 
 // Game loop instance
@@ -225,9 +214,9 @@ function _handle_input(event: KeyboardEvent): void {
     // Start/restart game with spacebar
     if (event.code === 'Space') {
         event.preventDefault();
-        const status = getStatus(game);
+        const status = game.getStatus();
         if (status === 'NOT_STARTED') {
-            game = start(game);
+            game = game.start();
         } else if (status === 'GAME_OVER') {
             resetGame();
             startGame();
@@ -236,7 +225,7 @@ function _handle_input(event: KeyboardEvent): void {
     }
 
     // Direction input (only during gameplay)
-    if (getStatus(game) !== 'PLAYING') {
+    if (game.getStatus() !== 'PLAYING') {
         return;
     }
 
@@ -266,7 +255,7 @@ function _handle_input(event: KeyboardEvent): void {
     }
 
     if (direction !== null) {
-        game = queueDirection(game, direction);
+        game = game.queueDirection(direction);
     }
 }
 
@@ -275,17 +264,17 @@ function _handle_input(event: KeyboardEvent): void {
  * Update game state (called with fixed timestep, in seconds)
  */
 function _update(dt: number): void {
-    if (getStatus(game) !== 'PLAYING') {
+    if (game.getStatus() !== 'PLAYING') {
         return;
     }
 
     dtAcc += dt;
     if (dtAcc >= SNAKE_TICK) {
-        game = tick(game);
+        game = game.tick();
         dtAcc -= SNAKE_TICK;
         
         // Send tick message to server
-        const state = getState(game);
+        const state = game.serialize();
         sendTickMessage(state.tickCount);
     }
 }
@@ -344,7 +333,7 @@ function drawGameState(canvasId: string, state: GameState): void {
  * Render the game state to canvas
  */
 function _draw(): void {
-    const state: GameState = getState(game);
+    const state: GameState = game.serialize();
     
     // Draw local game
     drawGameState('gameCanvas', state);
