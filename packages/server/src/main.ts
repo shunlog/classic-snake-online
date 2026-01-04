@@ -4,24 +4,19 @@
  */
 
 import { WebSocketServer, WebSocket } from 'ws';
-import type {
-  ClientMessage,
-  ServerMessage,
-  JoinedMessage,
-  PlayersListMessage,
-  ErrorMessage
-} from '@snake/shared';
+import type { ServerMessage } from '@snake/shared';
+import {
+  handleConnection,
+  handleMessage,
+  handleClose,
+  handleError,
+  parseClientMessage,
+  InvalidClientMessageError,
+  handleTick
+} from './game.js';
 
-const MAX_PLAYERS = 2;
-
-interface Player {
-  id: string;
-  ws: WebSocket;
-  name: string;
-}
-
-// Global lobby
-const players = new Map<string, Player>();
+const TICK_HZ = 20;
+const TICK_INTERVAL_MS = 1000 / TICK_HZ;
 
 /**
  * Send a typed message to a WebSocket client
@@ -33,75 +28,11 @@ function sendMessage(ws: WebSocket, message: ServerMessage): void {
 }
 
 /**
- * Parse incoming message data into a typed ClientMessage
+ * Generate a unique connection ID
  */
-function parseMessage(data: Buffer): ClientMessage {
-  return JSON.parse(data.toString()) as ClientMessage;
-}
-
-/**
- * Generate a unique player ID
- */
-function generatePlayerId(): string {
+function generateConnectionId(): string {
   const randomSuffix = Math.random().toString(36).slice(2, 11);
-  return `player_${randomSuffix}`;
-}
-
-/**
- * Broadcast player list to all connected clients
- */
-function broadcastPlayerList(): void {
-  const playerList = Array.from(players.values()).map(p => ({
-    id: p.id,
-    name: p.name
-  }));
-
-  const message: PlayersListMessage = {
-    type: 'players',
-    players: playerList
-  };
-
-  players.forEach(player => {
-    sendMessage(player.ws, message);
-  });
-}
-
-/**
- * Handle incoming client message
- */
-function handleMessage(
-  message: ClientMessage,
-  ws: WebSocket,
-  playerId: string
-): void {
-  switch (message.type) {
-    case 'join':
-      const player: Player = {
-        id: playerId,
-        ws,
-        name: message.name || `Player ${players.size + 1}`
-      };
-
-      players.set(playerId, player);
-      console.log(`Player ${player.name} (${playerId}) joined. Total players: ${players.size}`);
-
-      // Send confirmation to the joining player
-      const joinedMsg: JoinedMessage = {
-        type: 'joined',
-        playerId,
-        name: player.name
-      };
-      sendMessage(ws, joinedMsg);
-
-      // Broadcast updated player list
-      broadcastPlayerList();
-      break;
-
-    case 'tick':
-      // Echo the message back to the client
-      sendMessage(ws, message);
-      break;
-  }
+  return `connection_${randomSuffix}`;
 }
 
 /**
@@ -111,47 +42,49 @@ function startWebSocketServer(port: number): void {
   const wss = new WebSocketServer({ port });
 
   wss.on('connection', async (ws: WebSocket) => {
-    const playerId = generatePlayerId();
+    const connectionId = generateConnectionId();
+    const sendMsgCallback = (message: ServerMessage) => sendMessage(ws, message);
 
-    // Check if lobby is full
-    if (players.size >= MAX_PLAYERS) {
-      const errorMsg: ErrorMessage = { type: 'error', message: 'Lobby is full' };
-      sendMessage(ws, errorMsg);
+    if (!handleConnection(connectionId, sendMsgCallback)) {
       ws.close();
-      console.log('Connection rejected: lobby is full');
       return;
     }
 
     ws.on('message', async (data: Buffer) => {
       try {
-        const message = parseMessage(data);
-        handleMessage(message, ws, playerId);
+        const message = parseClientMessage(data);
+        handleMessage(message, connectionId, sendMsgCallback);
       } catch (error) {
-        console.error('Error parsing message:', error);
+        if (error instanceof InvalidClientMessageError) {
+          console.error(error.message);
+          return;
+        }
+        throw error;
       }
     });
 
     ws.on('close', () => {
-      if (players.has(playerId)) {
-        const player = players.get(playerId)!;
-        players.delete(playerId);
-        console.log(`Player ${player.name} (${playerId}) disconnected. Total players: ${players.size}`);
-        
-        // Broadcast updated player list
-        broadcastPlayerList();
-      }
+      handleClose(connectionId);
     });
 
     ws.on('error', (error) => {
       console.error('WebSocket error:', error);
+      handleError(connectionId);
     });
   });
 
   console.log(`WebSocket server running on ws://localhost:${port}`);
 }
 
+function startGameLoop(): void {
+  setInterval(() => {
+    handleTick();
+  }, TICK_INTERVAL_MS);
+}
+
 // Start server if running in Node environment
 const isNode = typeof globalThis !== 'undefined' && !('window' in globalThis);
 if (isNode) {
   startWebSocketServer(3001);
+  startGameLoop();
 }
