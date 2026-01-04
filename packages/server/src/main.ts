@@ -17,13 +17,24 @@ import {
 
 const TICK_HZ = 20;
 const TICK_INTERVAL_MS = 1000 / TICK_HZ;
+const SIMULATED_LATENCY_MS = 40; // Set to >0 to simulate latency for testing
+
+function sleep(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
 
 /**
  * Send a typed message to a WebSocket client
  */
 function sendMessage(ws: WebSocket, message: ServerMessage): void {
   if (ws.readyState === WebSocket.OPEN) {
-    ws.send(JSON.stringify(message));
+    if (SIMULATED_LATENCY_MS > 0) {
+      setTimeout(() => {
+        ws.send(JSON.stringify(message));
+      }, SIMULATED_LATENCY_MS);
+    } else {
+      ws.send(JSON.stringify(message));
+    }
   }
 }
 
@@ -53,7 +64,13 @@ function startWebSocketServer(port: number): void {
     ws.on('message', async (data: Buffer) => {
       try {
         const message = parseClientMessage(data);
-        handleMessage(message, connectionId, sendMsgCallback);
+        if (SIMULATED_LATENCY_MS > 0) {
+          await sleep(SIMULATED_LATENCY_MS);
+            await handleMessage(message, connectionId, sendMsgCallback);
+        } else {
+          await handleMessage(message, connectionId, sendMsgCallback);
+        }
+        
       } catch (error) {
         if (error instanceof InvalidClientMessageError) {
           console.error(error.message);
