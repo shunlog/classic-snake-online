@@ -7,7 +7,7 @@
  * - Rendering to HTML canvas
  */
 
-import { SnakeGame, Direction, GameState } from '@snake/shared';
+import { SnakeGame, Direction } from '@snake/shared';
 import type {
     ClientMessage,
     JoinMessage,
@@ -23,7 +23,7 @@ const CANVAS_HEIGHT = 400;
 const CELL_SIZE = 20;
 const GRID_WIDTH = CANVAS_WIDTH / CELL_SIZE;  // 20
 const GRID_HEIGHT = CANVAS_HEIGHT / CELL_SIZE; // 20
-const SNAKE_LENGTH = 4; // Initial snake length
+// TODO const SNAKE_LENGTH = 4; // Initial snake length
 
 // Tick duration when the snake moves (seconds)
 const SNAKE_TICK = 0.2; // 200 ms
@@ -164,12 +164,12 @@ let game: SnakeGame;
 resetGame();
 
 function resetGame(): void {
-    game = SnakeGame.create(GRID_WIDTH, GRID_HEIGHT, SNAKE_LENGTH);
+    game = SnakeGame.create(GRID_WIDTH, GRID_HEIGHT);
     dtAcc = 0;
 }
 
 function startGame(): void {
-    game = game.start();
+    game.start();
 }
 
 // Game loop instance
@@ -216,7 +216,7 @@ function _handle_input(event: KeyboardEvent): void {
         event.preventDefault();
         const status = game.getStatus();
         if (status === 'NOT_STARTED') {
-            game = game.start();
+            game.start();
         } else if (status === 'GAME_OVER') {
             resetGame();
             startGame();
@@ -255,7 +255,7 @@ function _handle_input(event: KeyboardEvent): void {
     }
 
     if (direction !== null) {
-        game = game.queueDirection(direction);
+        game.queueDirection(direction);
     }
 }
 
@@ -270,19 +270,18 @@ function _update(dt: number): void {
 
     dtAcc += dt;
     if (dtAcc >= SNAKE_TICK) {
-        game = game.tick();
+        game.tick();
         dtAcc -= SNAKE_TICK;
         
         // Send tick message to server
-        const state = game.serialize();
-        sendTickMessage(state.tickCount);
+        sendTickMessage(game.getTickCount());
     }
 }
 
 /**
- * Draw a game state to a specific canvas
+ * Draw a game to a specific canvas
  */
-function drawGameState(canvasId: string, state: GameState): void {
+function drawGame(canvasId: string, game: SnakeGame): void {
     const canvas = document.getElementById(canvasId) as HTMLCanvasElement;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
@@ -308,16 +307,18 @@ function drawGameState(canvasId: string, state: GameState): void {
     }
 
     // Draw food
+    const food = game.getFood();
     ctx.fillStyle = '#ff4444';
     ctx.fillRect(
-        state.food.x * CELL_SIZE + 2,
-        state.food.y * CELL_SIZE + 2,
+        food.x * CELL_SIZE + 2,
+        food.y * CELL_SIZE + 2,
         CELL_SIZE - 4,
         CELL_SIZE - 4
     );
 
     // Draw snake
-    state.snake.forEach((segment, index) => {
+    const snake = game.getSnake();
+    snake.forEach((segment, index) => {
         // Head is darker
         ctx.fillStyle = index === 0 ? '#2d5016' : '#4a7c2c';
         ctx.fillRect(
@@ -333,25 +334,23 @@ function drawGameState(canvasId: string, state: GameState): void {
  * Render the game state to canvas
  */
 function _draw(): void {
-    const state: GameState = game.serialize();
-    
     // Draw local game
-    drawGameState('gameCanvas', state);
+    drawGame('gameCanvas', game);
     
     // Draw opponent game (for now, just mirror the local game)
     // This will be replaced with actual opponent state later
-    drawGameState('opponentCanvas', state);
+    drawGame('opponentCanvas', game);
 
     // Update score display
     const scoreElement = document.getElementById('score');
     if (scoreElement) {
-        scoreElement.textContent = `Score: ${state.score}`;
+        scoreElement.textContent = `Score: ${game.getScore()}`;
     }
 
     // Update time display
     const timeElement = document.getElementById('time');
     if (timeElement) {
-        const seconds = Math.floor(state.elapsedTime / 1000);
+        const seconds = Math.floor(game.getElapsedTime() / 1000);
         timeElement.textContent = `Time: ${seconds}s`;
     }
 
@@ -359,7 +358,7 @@ function _draw(): void {
     const fpsElement = document.getElementById('fps');
     if (fpsElement) {
         const fps = gameLoop.fps;
-        fpsElement.textContent = `FPS: ${fps} | Ticks: ${state.tickCount}`;
+        fpsElement.textContent = `FPS: ${fps} | Ticks: ${game.getTickCount()}`;
         // Color code: green if good, yellow if medium, red if bad
         if (fps >= 55) {
             fpsElement.style.color = '#4a7c2c';
@@ -373,11 +372,12 @@ function _draw(): void {
     // Update status display
     const statusElement = document.getElementById('status');
     if (statusElement) {
-        if (state.status === 'NOT_STARTED') {
+        const status = game.getStatus();
+        if (status === 'NOT_STARTED') {
             statusElement.textContent = 'Press SPACE to start';
             statusElement.style.display = 'block';
-        } else if (state.status === 'GAME_OVER') {
-            statusElement.textContent = `Game Over! Score: ${state.score}. Press SPACE to restart`;
+        } else if (status === 'GAME_OVER') {
+            statusElement.textContent = `Game Over! Score: ${game.getScore()}. Press SPACE to restart`;
             statusElement.style.display = 'block';
         } else {
             statusElement.style.display = 'none';

@@ -1,11 +1,10 @@
 /**
  * Classic Snake Game ADT (Abstract Data Type)
  * 
- * This immutable ADT represents the complete state and logic of a Snake game.
+ * This mutable ADT represents the complete state and logic of a Snake game.
  * Following MIT 6.102 principles:
- * - Immutable design: all operations return new instances
+ * - Mutable design with defensive copying on inputs/outputs
  * - Representation invariants: checked after every operation
- * - No side effects: pure functional design
  * - Complete specifications for all public methods
  */
 
@@ -27,55 +26,31 @@ export type Direction = 'UP' | 'DOWN' | 'LEFT' | 'RIGHT';
  */
 export type GameStatus = 'NOT_STARTED' | 'PLAYING' | 'GAME_OVER';
 
-/**
- * Complete game state (immutable)
- */
-export interface GameState {
-    readonly snake: ReadonlyArray<Position>;
-    readonly food: Position;
-    readonly direction: Direction;
-    readonly status: GameStatus;
-    readonly score: number;
-    readonly gridWidth: number;
-    readonly gridHeight: number;
-    readonly startTime: number;
-    readonly elapsedTime: number;
-    readonly tickCount: number;
-}
-
-/**
- * Internal state interface (private to SnakeGame class)
- * Includes queue directions which are implementation details
- */
-interface InternalState extends GameState {
-    readonly queuedDir1: Direction | null;
-    readonly queuedDir2: Direction | null;
-}
-
 export class SnakeGame {
-    private readonly snake: ReadonlyArray<Position>;
-    private readonly food: Position;
-    private readonly direction: Direction;
-    private readonly queuedDir1: Direction | null;
-    private readonly queuedDir2: Direction | null;
-    private readonly status: GameStatus;
-    private readonly score: number;
+    private snake: Position[];
+    private food: Position;
+    private direction: Direction;
+    private queuedDir1: Direction | null;
+    private queuedDir2: Direction | null;
+    private status: GameStatus;
+    private score: number;
     private readonly gridWidth: number;
     private readonly gridHeight: number;
-    private readonly startTime: number;
-    private readonly elapsedTime: number;
-    private readonly tickCount: number;
-
+    private startTime: number;
+    private elapsedTime: number;
+    private tickCount: number;
 
     /**
-     * SnakeGame ADT - Immutable representation of Snake game logic
+     * SnakeGame ADT - Mutable representation of Snake game logic with defensive copying
      * 
      * Abstraction Function:
      *   AF(snake, food, direction, queuedDir1, queuedDir2, status, score, gridWidth, gridHeight, startTime, elapsedTime) = 
      *     A Snake game where:
      *     - The snake occupies positions snake[0] (head), snake[1], ..., snake[n-1] (tail)
      *     - Food is located at position 'food'
-     *     - Current movement direction is 'direction'
+     *     - The snake head was facing 'direction' when it moved to current position
+     *     - 'queuedDir1' is the direction in which the snake will go on the next tick
+     *     - 'queuedDir2' will be set to 'queuedDir1' after the next tick
      *     - Game state is 'status' (NOT_STARTED, PLAYING, or GAME_OVER)
      *     - Player score is 'score' (initially 0, +10 per food eaten)
      *     - Grid dimensions are gridWidth × gridHeight
@@ -91,7 +66,7 @@ export class SnakeGame {
      *   7. If queuedDir2 is set, queuedDir1 must also be set
      *   8. queuedDir1 (if set) is different from queuedDir2 (if set)
      *   9. Elapsed time is non-negative
-     *  10. No snake segment overlaps with another (except during growth)
+     *  10. No snake segment overlaps with another
      */
 
     /**
@@ -162,20 +137,33 @@ export class SnakeGame {
 
     /**
      * Private constructor - use static factory methods to create instances
+     * 
+     * @param gridWidth - Width of the grid
+     * @param gridHeight - Height of the grid
      */
-    private constructor(state: InternalState) {
-        this.snake = state.snake;
-        this.food = state.food;
-        this.direction = state.direction;
-        this.queuedDir1 = state.queuedDir1;
-        this.queuedDir2 = state.queuedDir2;
-        this.status = state.status;
-        this.score = state.score;
-        this.gridWidth = state.gridWidth;
-        this.gridHeight = state.gridHeight;
-        this.startTime = state.startTime;
-        this.elapsedTime = state.elapsedTime;
-        this.tickCount = state.tickCount;
+    private constructor(gridWidth: number, gridHeight: number) {
+        if (gridWidth <= 0 || gridHeight <= 0) {
+            throw new Error('Grid dimensions must be positive');
+        }
+        
+        this.gridWidth = gridWidth;
+        this.gridHeight = gridHeight;
+        
+        // Initialize with default values
+        const centerX = Math.floor(gridWidth / 2);
+        const centerY = Math.floor(gridHeight / 2);
+        
+        this.snake = [{ x: centerX, y: centerY }];
+        this.direction = 'RIGHT';
+        this.queuedDir1 = null;
+        this.queuedDir2 = null;
+        this.status = 'NOT_STARTED';
+        this.score = 0;
+        this.startTime = 0;
+        this.elapsedTime = 0;
+        this.tickCount = 0;
+        this.food = SnakeGame.generateFood(this.snake, this.gridWidth, this.gridHeight);
+        
         this.checkRep();
     }
 
@@ -184,63 +172,27 @@ export class SnakeGame {
      * 
      * @param gridWidth - Width of the game grid (default: 20)
      * @param gridHeight - Height of the game grid (default: 20)
-     * @param snakeLength - Initial length of the snake (default: 1, minimum: 1)
      * @returns A new SnakeGame instance in NOT_STARTED state
      */
-    public static create(gridWidth: number = 20, gridHeight: number = 20, snakeLength: number = 1): SnakeGame {
-        if (snakeLength < 1) {
-            throw new Error('Snake length must be at least 1');
-        }
-        
-        const centerX = Math.floor(gridWidth / 2);
-        const centerY = Math.floor(gridHeight / 2);
-
-        // Create snake with head at center, body extending to the left
-        const initialSnake: Position[] = [];
-        for (let i = 0; i < snakeLength; i++) {
-            const segmentX = centerX - i;
-            if (segmentX < 0) {
-                throw new Error(`Snake length ${snakeLength} is too long for grid width ${gridWidth}`);
-            }
-            initialSnake.push({ x: segmentX, y: centerY });
-        }
-
-        const food = SnakeGame.generateFood(initialSnake, gridWidth, gridHeight);
-
-        return new SnakeGame({
-            snake: initialSnake,
-            food,
-            direction: 'RIGHT',
-            queuedDir1: null,
-            queuedDir2: null,
-            status: 'NOT_STARTED',
-            score: 0,
-            gridWidth,
-            gridHeight,
-            startTime: 0,
-            elapsedTime: 0,
-            tickCount: 0
-        });
+    public static create(gridWidth: number = 20, gridHeight: number = 20): SnakeGame {
+        return new SnakeGame(gridWidth, gridHeight);
     }
 
     /**
      * Start the game
      * 
-     * @returns A new SnakeGame instance with status PLAYING and timer started
+     * Mutates the game state to PLAYING and starts the timer
      */
-    public start(): SnakeGame {
+    public start(): void {
         if (this.status === 'PLAYING') {
-            return this;
+            return;
         }
 
-        return new SnakeGame({
-            ...this.serialize(),
-            queuedDir1: this.queuedDir1,
-            queuedDir2: this.queuedDir2,
-            status: 'PLAYING',
-            startTime: Date.now(),
-            elapsedTime: 0
-        });
+        this.status = 'PLAYING';
+        this.startTime = Date.now();
+        this.elapsedTime = 0;
+        
+        this.checkRep();
     }
 
     /**
@@ -284,39 +236,30 @@ export class SnakeGame {
      * Queue a direction change
      * 
      * @param newDirection - Direction to queue
-     * @returns A new SnakeGame instance with the direction queued (if valid)
      * 
      * Effects: 
      * - Ignores invalid directions (opposite of current or last queued)
      * - Ignores if both queue slots are full
      * - Prevents consecutive duplicates
      */
-    public queueDirection(newDirection: Direction): SnakeGame {
+    public queueDirection(newDirection: Direction): void {
         if (!this.canQueueDirection(newDirection)) {
-            return this;
+            return;
         }
 
         if (this.queuedDir2 === null && this.queuedDir1 !== null) {
             // Second slot empty
-            return new SnakeGame({
-                ...this.serialize(),
-                queuedDir1: this.queuedDir1,
-                queuedDir2: newDirection
-            });
+            this.queuedDir2 = newDirection;
         } else {
             // First slot empty
-            return new SnakeGame({
-                ...this.serialize(),
-                queuedDir1: newDirection,
-                queuedDir2: this.queuedDir2
-            });
+            this.queuedDir1 = newDirection;
         }
+        
+        this.checkRep();
     }
 
     /**
      * Advance game by one tick
-     * 
-     * @returns A new SnakeGame instance after one game tick
      * 
      * Effects:
      * - Processes one direction from queue (if any)
@@ -325,87 +268,60 @@ export class SnakeGame {
      * - Checks for collisions (sets GAME_OVER)
      * - Updates elapsed time
      */
-    public tick(): SnakeGame {
+    public tick(): void {
         if (this.status !== 'PLAYING') {
-            return this;
+            return;
         }
 
         // Process queued direction
-        let newDirection = this.direction;
-        let newQueuedDir1 = this.queuedDir1;
-        let newQueuedDir2 = this.queuedDir2;
-
         if (this.queuedDir1 !== null) {
-            newDirection = this.queuedDir1;
-            newQueuedDir1 = this.queuedDir2;
-            newQueuedDir2 = null;
+            this.direction = this.queuedDir1;
+            this.queuedDir1 = this.queuedDir2;
+            this.queuedDir2 = null;
         }
 
         // Calculate new head position
         const head = this.snake[0];
-        const newHead = this.getNextPosition(head, newDirection);
+        const newHead = this.getNextPosition(head, this.direction);
 
         // Check wall collision
         if (newHead.x < 0 || newHead.x >= this.gridWidth ||
             newHead.y < 0 || newHead.y >= this.gridHeight) {
-            return new SnakeGame({
-                ...this.serialize(),
-                queuedDir1: newQueuedDir1,
-                queuedDir2: newQueuedDir2,
-                status: 'GAME_OVER',
-                direction: newDirection
-            });
+            this.status = 'GAME_OVER';
+            this.checkRep();
+            return;
         }
 
         // Check food consumption
         const ateFood = newHead.x === this.food.x && newHead.y === this.food.y;
 
-        let newSnake: Position[];
-        let newFood = this.food;
-        let newScore = this.score;
-
         if (ateFood) {
             // Grow snake (keep tail)
-            newSnake = [newHead, ...this.snake];
-            newScore = this.score + 10;
-            newFood = SnakeGame.generateFood(newSnake, this.gridWidth, this.gridHeight);
+            this.snake.unshift(newHead);
+            this.score += 10;
+            this.food = SnakeGame.generateFood(this.snake, this.gridWidth, this.gridHeight);
         } else {
             // Move snake (remove tail)
-            newSnake = [newHead, ...this.snake.slice(0, -1)];
+            this.snake.pop();
+            this.snake.unshift(newHead);
         }
 
-        // Check self-collision against the new snake body (after tail removal/growth)
+        // Check self-collision against the new snake body
         // Skip the head (index 0) since that's the new position we're checking
-        for (let i = 1; i < newSnake.length; i++) {
-            const segment = newSnake[i];
+        for (let i = 1; i < this.snake.length; i++) {
+            const segment = this.snake[i];
             if (newHead.x === segment.x && newHead.y === segment.y) {
-                return new SnakeGame({
-                    ...this.serialize(),
-                    queuedDir1: newQueuedDir1,
-                    queuedDir2: newQueuedDir2,
-                    status: 'GAME_OVER',
-                    direction: newDirection
-                });
+                this.status = 'GAME_OVER';
+                this.checkRep();
+                return;
             }
         }
 
         // Update elapsed time
-        const newElapsedTime = Date.now() - this.startTime;
+        this.elapsedTime = Date.now() - this.startTime;
+        this.tickCount++;
 
-        return new SnakeGame({
-            snake: newSnake,
-            food: newFood,
-            direction: newDirection,
-            queuedDir1: newQueuedDir1,
-            queuedDir2: newQueuedDir2,
-            status: 'PLAYING',
-            score: newScore,
-            gridWidth: this.gridWidth,
-            gridHeight: this.gridHeight,
-            startTime: this.startTime,
-            elapsedTime: newElapsedTime,
-            tickCount: this.tickCount + 1
-        });
+        this.checkRep();
     }
 
     /**
@@ -445,23 +361,57 @@ export class SnakeGame {
     }
 
     /**
-     * Serialize the game state for rendering or persistence
+     * Get the snake positions (defensive copy)
      * 
-     * @returns Complete game state object (defensive copy)
+     * @returns Array of snake segment positions
      */
-    public serialize(): GameState {
-        return {
-            snake: this.snake.map(pos => ({...pos})),
-            food: {...this.food},
-            direction: this.direction,
-            status: this.status,
-            score: this.score,
-            gridWidth: this.gridWidth,
-            gridHeight: this.gridHeight,
-            startTime: this.startTime,
-            elapsedTime: this.elapsedTime,
-            tickCount: this.tickCount
-        };
+    public getSnake(): ReadonlyArray<Position> {
+        return this.snake.map(pos => ({ ...pos }));
+    }
+
+    /**
+     * Get the food position (defensive copy)
+     * 
+     * @returns Food position
+     */
+    public getFood(): Position {
+        return { ...this.food };
+    }
+
+    /**
+     * Get the current direction
+     * 
+     * @returns Current direction
+     */
+    public getDirection(): Direction {
+        return this.direction;
+    }
+
+    /**
+     * Get the grid width
+     * 
+     * @returns Grid width
+     */
+    public getGridWidth(): number {
+        return this.gridWidth;
+    }
+
+    /**
+     * Get the grid height
+     * 
+     * @returns Grid height
+     */
+    public getGridHeight(): number {
+        return this.gridHeight;
+    }
+
+    /**
+     * Get the start time
+     * 
+     * @returns Start time timestamp
+     */
+    public getStartTime(): number {
+        return this.startTime;
     }
 
     /**
@@ -493,7 +443,7 @@ export class SnakeGame {
     /**
      * Generate a random food position not occupied by snake
      */
-    private static generateFood(snake: ReadonlyArray<Position>, gridWidth: number, gridHeight: number): Position {
+    private static generateFood(snake: Position[], gridWidth: number, gridHeight: number): Position {
         const occupied = new Set(snake.map(pos => `${pos.x},${pos.y}`));
 
         let food: Position;
