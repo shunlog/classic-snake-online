@@ -95,7 +95,7 @@ function handleMessage(message: ServerMessage): void {
  */
 function initWebSocket(): void {
     ws = new WebSocket('ws://localhost:3001');
-    
+
     ws.onopen = () => {
         console.log('WebSocket connected to server');
         // Send join message
@@ -103,7 +103,7 @@ function initWebSocket(): void {
         const joinMsg: JoinMessage = { type: 'join', name: playerName };
         sendMessage(joinMsg);
     };
-    
+
     ws.onmessage = (event) => {
         try {
             const message = parseMessage(event.data);
@@ -112,11 +112,11 @@ function initWebSocket(): void {
             console.error('Error parsing WebSocket message:', error);
         }
     };
-    
+
     ws.onerror = (error) => {
         console.error('WebSocket error:', error);
     };
-    
+
     ws.onclose = () => {
         console.log('WebSocket disconnected');
         playerId = null;
@@ -181,12 +181,12 @@ let gameLoop: GameLoop = new GameLoop({
 function init(): void {
     const canvas = document.getElementById('gameCanvas') as HTMLCanvasElement;
     const opponentCanvas = document.getElementById('opponentCanvas') as HTMLCanvasElement;
-    
+
     if (!canvas) {
         console.error('Canvas element not found');
         return;
     }
-    
+
     if (!opponentCanvas) {
         console.error('Opponent canvas element not found');
         return;
@@ -329,7 +329,7 @@ function drawGame(canvasId: string, game: SnakeGame): void {
 function _draw(): void {
     // Draw local game
     drawGame('gameCanvas', game);
-    
+
     // Draw opponent game (for now, just mirror the local game)
     // This will be replaced with actual opponent state later
     drawGame('opponentCanvas', game);

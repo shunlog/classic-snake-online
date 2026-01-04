@@ -66,11 +66,11 @@ function startWebSocketServer(port: number): void {
         const message = parseClientMessage(data);
         if (SIMULATED_LATENCY_MS > 0) {
           await sleep(SIMULATED_LATENCY_MS);
-            await handleMessage(message, connectionId, sendMsgCallback);
+          await handleMessage(message, connectionId, sendMsgCallback);
         } else {
           await handleMessage(message, connectionId, sendMsgCallback);
         }
-        
+
       } catch (error) {
         if (error instanceof InvalidClientMessageError) {
           console.error(error.message);
