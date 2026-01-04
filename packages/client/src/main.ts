@@ -122,17 +122,6 @@ function initWebSocket(): void {
 }
 
 /**
- * Send tick message to server
- */
-function sendTickMessage(tickCount: number): void {
-    if (ws && ws.readyState === WebSocket.OPEN) {
-        pendingMessages.set(tickCount, performance.now());
-        const tickMsg: TickMessage = { type: 'tick', tickCount };
-        sendMessage(tickMsg);
-    }
-}
-
-/**
  * Update the players list in the UI
  */
 function updatePlayersList(): void {
@@ -272,9 +261,6 @@ function _update(dt: number): void {
     if (dtAcc >= SNAKE_TICK) {
         game.tick();
         dtAcc -= SNAKE_TICK;
-        
-        // Send tick message to server
-        sendTickMessage(game.getTickCount());
     }
 }
 

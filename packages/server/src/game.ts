@@ -12,6 +12,10 @@ import type {
 } from '@snake/shared';
 
 const MAX_PLAYERS = 2;
+// average latency + some slack
+// represents how much later the server ticks than the client.
+// Inputs for a tick should be received before this time.
+const CUTOFF_TIME_MS = 150;
 let tickCount = 0;
 
 export type SendMessage = (message: ServerMessage) => void;

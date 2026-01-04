@@ -3,6 +3,8 @@
  * All messages follow a discriminated union pattern for type safety
  */
 
+import { SnakeGame } from "./snake";
+
 /**
  * Player information
  */
@@ -15,8 +17,7 @@ export interface PlayerInfo {
  * Messages from client to server
  */
 export type ClientMessage =
-  | JoinMessage
-  | TickMessage;
+  | JoinMessage;
 
 /**
  * Messages from server to client
@@ -24,6 +25,7 @@ export type ClientMessage =
 export type ServerMessage =
   | JoinedMessage
   | PlayersListMessage
+  | GameStartMessage
   | TickMessage
   | ErrorMessage;
 
@@ -52,12 +54,20 @@ export interface PlayersListMessage {
   players: PlayerInfo[];
 }
 
+export interface GameStartMessage {
+  type: 'game_start';
+  playerState: SnakeGame;
+  opponentState: SnakeGame;
+}
+
 /**
  * Game tick synchronization (bidirectional)
  */
 export interface TickMessage {
   type: 'tick';
   tickCount: number;
+  playerState: SnakeGame;
+  opponentState: SnakeGame;
 }
 
 /**
