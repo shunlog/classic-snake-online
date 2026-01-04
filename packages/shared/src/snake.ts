@@ -44,33 +44,6 @@ export interface GameState {
 }
 
 /**
- * SnakeGame ADT - Immutable representation of Snake game logic
- * 
- * Abstraction Function:
- *   AF(snake, food, direction, queuedDir1, queuedDir2, status, score, gridWidth, gridHeight, startTime, elapsedTime) = 
- *     A Snake game where:
- *     - The snake occupies positions snake[0] (head), snake[1], ..., snake[n-1] (tail)
- *     - Food is located at position 'food'
- *     - Current movement direction is 'direction'
- *     - Game state is 'status' (NOT_STARTED, PLAYING, or GAME_OVER)
- *     - Player score is 'score' (initially 0, +10 per food eaten)
- *     - Grid dimensions are gridWidth × gridHeight
- *     - Game started at timestamp 'startTime', has been running for 'elapsedTime' ms
- * 
- * Representation Invariants:
- *   1. Snake has at least one segment (head)
- *   2. All snake positions are within grid bounds
- *   3. Food position is within grid bounds
- *   4. Food is not on any snake segment
- *   5. Grid dimensions are positive
- *   6. Score is non-negative
- *   7. If queuedDir2 is set, queuedDir1 must also be set
- *   8. queuedDir1 (if set) is different from queuedDir2 (if set)
- *   9. Elapsed time is non-negative
- *  10. No snake segment overlaps with another (except during growth)
- */
-
-/**
  * Internal state interface (private to SnakeGame class)
  * Includes queue directions which are implementation details
  */
@@ -93,24 +66,33 @@ export class SnakeGame {
     private readonly elapsedTime: number;
     private readonly tickCount: number;
 
+
     /**
-     * Private constructor - use static factory methods to create instances
+     * SnakeGame ADT - Immutable representation of Snake game logic
+     * 
+     * Abstraction Function:
+     *   AF(snake, food, direction, queuedDir1, queuedDir2, status, score, gridWidth, gridHeight, startTime, elapsedTime) = 
+     *     A Snake game where:
+     *     - The snake occupies positions snake[0] (head), snake[1], ..., snake[n-1] (tail)
+     *     - Food is located at position 'food'
+     *     - Current movement direction is 'direction'
+     *     - Game state is 'status' (NOT_STARTED, PLAYING, or GAME_OVER)
+     *     - Player score is 'score' (initially 0, +10 per food eaten)
+     *     - Grid dimensions are gridWidth × gridHeight
+     *     - Game started at timestamp 'startTime', has been running for 'elapsedTime' ms
+     * 
+     * Representation Invariants:
+     *   1. Snake has at least one segment (head)
+     *   2. All snake positions are within grid bounds
+     *   3. Food position is within grid bounds
+     *   4. Food is not on any snake segment
+     *   5. Grid dimensions are positive
+     *   6. Score is non-negative
+     *   7. If queuedDir2 is set, queuedDir1 must also be set
+     *   8. queuedDir1 (if set) is different from queuedDir2 (if set)
+     *   9. Elapsed time is non-negative
+     *  10. No snake segment overlaps with another (except during growth)
      */
-    private constructor(state: InternalState) {
-        this.snake = state.snake;
-        this.food = state.food;
-        this.direction = state.direction;
-        this.queuedDir1 = state.queuedDir1;
-        this.queuedDir2 = state.queuedDir2;
-        this.status = state.status;
-        this.score = state.score;
-        this.gridWidth = state.gridWidth;
-        this.gridHeight = state.gridHeight;
-        this.startTime = state.startTime;
-        this.elapsedTime = state.elapsedTime;
-        this.tickCount = state.tickCount;
-        this.checkRep();
-    }
 
     /**
      * Check representation invariants
@@ -176,6 +158,25 @@ export class SnakeGame {
             }
             positions.add(key);
         }
+    }
+
+    /**
+     * Private constructor - use static factory methods to create instances
+     */
+    private constructor(state: InternalState) {
+        this.snake = state.snake;
+        this.food = state.food;
+        this.direction = state.direction;
+        this.queuedDir1 = state.queuedDir1;
+        this.queuedDir2 = state.queuedDir2;
+        this.status = state.status;
+        this.score = state.score;
+        this.gridWidth = state.gridWidth;
+        this.gridHeight = state.gridHeight;
+        this.startTime = state.startTime;
+        this.elapsedTime = state.elapsedTime;
+        this.tickCount = state.tickCount;
+        this.checkRep();
     }
 
     /**
@@ -446,12 +447,12 @@ export class SnakeGame {
     /**
      * Serialize the game state for rendering or persistence
      * 
-     * @returns Complete game state object
+     * @returns Complete game state object (defensive copy)
      */
     public serialize(): GameState {
         return {
-            snake: this.snake,
-            food: this.food,
+            snake: this.snake.map(pos => ({...pos})),
+            food: {...this.food},
             direction: this.direction,
             status: this.status,
             score: this.score,
