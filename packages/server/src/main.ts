@@ -43,7 +43,8 @@ function parseMessage(data: Buffer): ClientMessage {
  * Generate a unique player ID
  */
 function generatePlayerId(): string {
-  return `player_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  const randomSuffix = Math.random().toString(36).slice(2, 11);
+  return `player_${randomSuffix}`;
 }
 
 /**
@@ -71,25 +72,23 @@ function broadcastPlayerList(): void {
 function handleMessage(
   message: ClientMessage,
   ws: WebSocket,
-  playerId: { value: string | null }
+  playerId: string
 ): void {
   switch (message.type) {
     case 'join':
-      playerId.value = generatePlayerId();
-      
       const player: Player = {
-        id: playerId.value,
+        id: playerId,
         ws,
         name: message.name || `Player ${players.size + 1}`
       };
 
-      players.set(playerId.value, player);
-      console.log(`Player ${player.name} (${playerId.value}) joined. Total players: ${players.size}`);
+      players.set(playerId, player);
+      console.log(`Player ${player.name} (${playerId}) joined. Total players: ${players.size}`);
 
       // Send confirmation to the joining player
       const joinedMsg: JoinedMessage = {
         type: 'joined',
-        playerId: playerId.value,
+        playerId,
         name: player.name
       };
       sendMessage(ws, joinedMsg);
@@ -112,7 +111,7 @@ function startWebSocketServer(port: number): void {
   const wss = new WebSocketServer({ port });
 
   wss.on('connection', async (ws: WebSocket) => {
-    const playerIdRef = { value: null as string | null };
+    const playerId = generatePlayerId();
 
     // Check if lobby is full
     if (players.size >= MAX_PLAYERS) {
@@ -126,17 +125,17 @@ function startWebSocketServer(port: number): void {
     ws.on('message', async (data: Buffer) => {
       try {
         const message = parseMessage(data);
-        handleMessage(message, ws, playerIdRef);
+        handleMessage(message, ws, playerId);
       } catch (error) {
         console.error('Error parsing message:', error);
       }
     });
 
     ws.on('close', () => {
-      if (playerIdRef.value && players.has(playerIdRef.value)) {
-        const player = players.get(playerIdRef.value)!;
-        players.delete(playerIdRef.value);
-        console.log(`Player ${player.name} (${playerIdRef.value}) disconnected. Total players: ${players.size}`);
+      if (players.has(playerId)) {
+        const player = players.get(playerId)!;
+        players.delete(playerId);
+        console.log(`Player ${player.name} (${playerId}) disconnected. Total players: ${players.size}`);
         
         // Broadcast updated player list
         broadcastPlayerList();
