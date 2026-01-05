@@ -15,7 +15,7 @@ import {
   handleTick
 } from './game.js';
 
-const TICK_HZ = 20;
+const TICK_HZ = 5;
 const TICK_INTERVAL_MS = 1000 / TICK_HZ;
 const SIMULATED_LATENCY_MS = 40; // Set to >0 to simulate latency for testing
 

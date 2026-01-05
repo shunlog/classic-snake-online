@@ -12,15 +12,17 @@ import {
     type GameStartMessage,
     type TimeSyncRequestMessage,
     type TimeSyncResponseMessage,
-    SnakeGame
+    SnakeGame,
+    GameStatus
 } from '@snake/shared';
 
 const MAX_PLAYERS = 2;
 // average latency + some slack
 // represents how much later the server ticks than the client.
 // Inputs for a tick should be received before this time.
-// const CUTOFF_TIME_MS = 150;
+const CUTOFF_TIME_MS = 600;
 let tickCount = 0;
+let gameStatus : GameStatus = 'NOT_STARTED';
 const TIME_SYNC_TIMEOUT_MS = 2000;
 const GRID_WIDTH = 20;
 const GRID_HEIGHT = 20;
@@ -37,6 +39,10 @@ export class InvalidClientMessageError extends Error {
         this.name = 'InvalidClientMessageError';
         this.originalError = originalError;
     }
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms));
 }
 
 interface PlayerSession {
@@ -75,6 +81,10 @@ export function parseClientMessage(data: Buffer): ClientMessage {
 }
 
 export function handleTick(): void {
+    if (gameStatus !== 'PLAYING') {
+        return;
+    }
+
     tickCount += 1;
     const sessions = [...players.values()];
     for (const player of sessions) {
@@ -95,6 +105,10 @@ export function handleTick(): void {
         // Advance game by one tick
         game.tick();
 
+        if (game.getStatus() === 'GAME_OVER') {
+            gameOver();
+        }
+
         // Opponent mapping (assumes two players)
         const opponent = sessions.find(s => s.id !== player.id);
         const opponentGame = opponent ? playerGames.get(opponent.id)! : game;
@@ -107,6 +121,11 @@ export function handleTick(): void {
         };
         player.send(tickMessage);
     }
+}
+
+function gameOver(): void {
+    console.log('Game over.');
+    gameStatus = 'GAME_OVER';
 }
 
 export function requestTimeSync(connectionId: string): Promise<TimeSyncResult> {
@@ -211,6 +230,11 @@ export async function handleMessage(
 
         case 'input': {
             const queue = inputQueues.get(connectionId);
+            if (message.tickCount <= tickCount) {
+               // Ignore late input
+               console.log(`Ignoring late input from ${connectionId} for tick ${message.tickCount} (current tick ${tickCount})`);
+                break;
+            }
             const entry = { tickCount: message.tickCount, direction: message.direction };
             if (!queue) {
                 inputQueues.set(connectionId, [entry]);
@@ -236,7 +260,7 @@ function handleTimeSyncResponse(
 
     const latencyMs = performance.now() - pending.startTime;
     const serverNow = performance.now();
-    const timeOffset = message.clientTimeMs - serverNow - latencyMs / 2;
+    const timeOffset = message.clientTimeMs - serverNow + latencyMs / 2;
     pending.resolve({
         requestId: message.requestId,
         latencyMs,
@@ -273,18 +297,21 @@ function rejectPendingSyncs(connectionId: string, reason: string): void {
 
 
 async function startGame(): Promise<void> {
-    console.log('Both players connected. Starting game...');
+    console.log('Both players connected. Starting countdown...');
     // Initialize per-player games and input queues
     playerGames.clear();
     inputQueues.clear();
+    const initialGame = new SnakeGame(GRID_WIDTH, GRID_HEIGHT, INITIAL_SNAKE_LENGTH);
+
+    const scheduledTime = performance.now() + COUNTDOWN_MS;
     for (const player of players.values()) {
-        playerGames.set(player.id, new SnakeGame(GRID_WIDTH, GRID_HEIGHT, INITIAL_SNAKE_LENGTH));
+        playerGames.set(player.id, SnakeGame.fromDTO(initialGame.toDTO()));
         inputQueues.set(player.id, []);
     }
     for (const player of players.values()) {
         let res = await requestTimeSync(player.id)
         console.log(`Time sync result for ${player.id}:`, res);
-        const startTime = performance.now() + COUNTDOWN_MS + res.timeOffset;
+        const startTime =  scheduledTime + res.timeOffset - (res.latencyMs / 2);
         const opponent = [...players.values()].find(p => p.id !== player.id);
         const startMsg: GameStartMessage = {
             type: 'game_start',
@@ -294,4 +321,12 @@ async function startGame(): Promise<void> {
         };
         player.send(startMsg);
     }
+
+    await sleep(scheduledTime - performance.now() + CUTOFF_TIME_MS);
+    gameStatus = 'PLAYING';
+    tickCount = 0;
+    for (const player of players.values()) {
+        playerGames.get(player.id)?.start();
+    }
+    console.log('Game started.');
 }
