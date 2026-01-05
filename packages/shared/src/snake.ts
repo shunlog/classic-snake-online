@@ -9,6 +9,20 @@
  */
 
 /**
+ * Exception thrown when the game ends due to a collision
+ */
+export class GameOverError extends Error {
+    public readonly cause: 'wall' | 'self';
+
+    constructor(cause: 'wall' | 'self') {
+        super(`Game over: ${cause === 'wall' ? 'hit wall' : 'self-collision'}`);
+        this.name = 'GameOverError';
+        this.cause = cause;
+        Object.setPrototypeOf(this, GameOverError.prototype);
+    }
+}
+
+/**
  * Position on the game grid
  */
 export interface Position {
@@ -312,8 +326,9 @@ export class SnakeGame {
      * - Processes one direction from queue (if any)
      * - Moves snake one cell in current direction
      * - Checks for food consumption (grows snake, updates score)
-     * - Checks for collisions (sets GAME_OVER)
      * - Updates elapsed time
+     * 
+     * @throws {GameOverError} if collision occurs (wall or self)
      */
     public tick(): void {
         // Process queued direction
@@ -331,7 +346,7 @@ export class SnakeGame {
         if (newHead.x < 0 || newHead.x >= this.gridWidth ||
             newHead.y < 0 || newHead.y >= this.gridHeight) {
             this.checkRep();
-            return;
+            throw new GameOverError('wall');
         }
 
         // Check food consumption
@@ -354,7 +369,7 @@ export class SnakeGame {
             const segment = this.snake[i];
             if (newHead.x === segment.x && newHead.y === segment.y) {
                 this.checkRep();
-                return;
+                throw new GameOverError('self');
             }
         }
 

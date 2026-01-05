@@ -7,7 +7,7 @@
  * - Rendering to HTML canvas
  */
 
-import { SnakeGame, Direction } from '@snake/shared';
+import { SnakeGame, Direction, GameOverError } from '@snake/shared';
 import { GameLoop } from './gameLoop.js';
 
 
@@ -126,7 +126,15 @@ function _update(dt: number): void {
 
     dtAcc += dt;
     if (dtAcc >= SNAKE_TICK) {
-        game.tick();
+        try {
+            game.tick();
+        } catch (error) {
+            if (error instanceof GameOverError) {
+                status = 'GAME_OVER';
+            } else {
+                throw error;
+            }
+        }
         dtAcc -= SNAKE_TICK;
     }
 }
