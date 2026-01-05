@@ -35,6 +35,7 @@ let ws: WebSocket | null = null;
 const pendingMessages = new Map<number, number>(); // tickCount -> timestamp
 let playerId: string | null = null;
 let players: PlayerInfo[] = [];
+let opponentGame: SnakeGame | null = null;
 
 function sleep(ms: number): Promise<void> {
     return new Promise(resolve => setTimeout(resolve, ms));
@@ -78,6 +79,9 @@ async function handleMessage(message: ServerMessage): Promise<void> {
                 console.log(`${message.tickCount == game.getTickCount()} Tick ${message.tickCount}, current ${game.getTickCount()} round-trip: ${latency.toFixed(2)}ms`);
                 pendingMessages.delete(message.tickCount);
             }
+            // Apply authoritative state from server
+            game = SnakeGame.fromDTO(message.playerState);
+            opponentGame = SnakeGame.fromDTO(message.opponentState);
             break;
 
         case 'time_sync_request':
@@ -93,6 +97,7 @@ async function handleMessage(message: ServerMessage): Promise<void> {
 
             // Reconstruct game from DTO received from server
             game = SnakeGame.fromDTO(message.playerState);
+            opponentGame = SnakeGame.fromDTO(message.opponentState);
 
             const targetTimeMs = message.startTimeMs;
             const countdownElement = document.getElementById('countdown');
@@ -281,6 +286,14 @@ function _handle_input(event: KeyboardEvent): void {
 
     if (direction !== null) {
         game.queueDirection(direction);
+        // Send input to server with current local tick
+        const currentTick = game.getTickCount();
+        pendingMessages.set(currentTick, performance.now());
+        sendMessage({
+            type: 'input',
+            direction,
+            tickCount: currentTick
+        } as ClientMessage);
     }
 }
 
@@ -359,9 +372,8 @@ function _draw(): void {
     // Draw local game
     drawGame('gameCanvas', game);
 
-    // Draw opponent game (for now, just mirror the local game)
-    // This will be replaced with actual opponent state later
-    drawGame('opponentCanvas', game);
+    // Draw opponent game (authoritative from server if available)
+    drawGame('opponentCanvas', opponentGame ?? game);
 
     // Update score display
     const scoreElement = document.getElementById('score');

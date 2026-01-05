@@ -3,7 +3,7 @@
  * All messages follow a discriminated union pattern for type safety
  */
 
-import { SnakeGameDTO } from "./snake";
+import { SnakeGameDTO, Direction } from "./snake";
 
 /**
  * Player information
@@ -18,7 +18,16 @@ export interface PlayerInfo {
  */
 export type ClientMessage =
   | JoinMessage
-  | TimeSyncResponseMessage;
+  | TimeSyncResponseMessage
+  | InputMessage;
+/**
+ * Client sends a direction input at a specific local tick
+ */
+export interface InputMessage {
+  type: 'input';
+  direction: Direction;
+  tickCount: number;
+}
 
 /**
  * Messages from server to client

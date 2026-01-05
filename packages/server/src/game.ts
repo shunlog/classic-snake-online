@@ -46,6 +46,9 @@ interface PlayerSession {
 }
 
 const players = new Map<string, PlayerSession>();
+const playerGames = new Map<string, SnakeGame>();
+type QueuedInput = { tickCount: number; direction: import('@snake/shared').Direction };
+const inputQueues = new Map<string, QueuedInput[]>();
 
 interface PendingTimeSync {
     connectionId: string;
@@ -73,15 +76,37 @@ export function parseClientMessage(data: Buffer): ClientMessage {
 
 export function handleTick(): void {
     tickCount += 1;
+    const sessions = [...players.values()];
+    for (const player of sessions) {
+        const game = playerGames.get(player.id);
+        if (!game) continue;
+        const queue = inputQueues.get(player.id) ?? [];
+        // Apply inputs whose tickCount <= current server tick
+        let i = 0;
+        while (i < queue.length) {
+            const input = queue[i];
+            if (input.tickCount <= tickCount) {
+                game.queueDirection(input.direction);
+                queue.splice(i, 1);
+            } else {
+                i++;
+            }
+        }
+        // Advance game by one tick
+        game.tick();
 
-    //   const tickMessage: TickMessage = {
-    //     type: 'tick',
-    //     tickCount
-    //   };
+        // Opponent mapping (assumes two players)
+        const opponent = sessions.find(s => s.id !== player.id);
+        const opponentGame = opponent ? playerGames.get(opponent.id)! : game;
 
-    //   players.forEach(player => {
-    //     player.send(tickMessage);
-    //   });
+        const tickMessage: import('@snake/shared').TickMessage = {
+            type: 'tick',
+            tickCount,
+            playerState: game.toDTO(),
+            opponentState: opponentGame.toDTO()
+        };
+        player.send(tickMessage);
+    }
 }
 
 export function requestTimeSync(connectionId: string): Promise<TimeSyncResult> {
@@ -183,6 +208,17 @@ export async function handleMessage(
         case 'time_sync_response':
             handleTimeSyncResponse(connectionId, message);
             break;
+
+        case 'input': {
+            const queue = inputQueues.get(connectionId);
+            const entry = { tickCount: message.tickCount, direction: message.direction };
+            if (!queue) {
+                inputQueues.set(connectionId, [entry]);
+            } else {
+                queue.push(entry);
+            }
+            break;
+        }
     }
 }
 
@@ -238,16 +274,22 @@ function rejectPendingSyncs(connectionId: string, reason: string): void {
 
 async function startGame(): Promise<void> {
     console.log('Both players connected. Starting game...');
-
-    const initialGame = new SnakeGame(GRID_WIDTH, GRID_HEIGHT, INITIAL_SNAKE_LENGTH);
+    // Initialize per-player games and input queues
+    playerGames.clear();
+    inputQueues.clear();
+    for (const player of players.values()) {
+        playerGames.set(player.id, new SnakeGame(GRID_WIDTH, GRID_HEIGHT, INITIAL_SNAKE_LENGTH));
+        inputQueues.set(player.id, []);
+    }
     for (const player of players.values()) {
         let res = await requestTimeSync(player.id)
         console.log(`Time sync result for ${player.id}:`, res);
         const startTime = performance.now() + COUNTDOWN_MS + res.timeOffset;
+        const opponent = [...players.values()].find(p => p.id !== player.id);
         const startMsg: GameStartMessage = {
             type: 'game_start',
-            playerState: initialGame.toDTO(),
-            opponentState: initialGame.toDTO(),
+            playerState: playerGames.get(player.id)!.toDTO(),
+            opponentState: opponent ? playerGames.get(opponent.id)!.toDTO() : playerGames.get(player.id)!.toDTO(),
             startTimeMs: startTime
         };
         player.send(startMsg);
