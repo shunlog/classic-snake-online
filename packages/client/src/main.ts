@@ -8,6 +8,7 @@
  */
 
 import { SnakeGame, Direction } from '@snake/shared';
+import type { Position } from '@snake/shared';
 import type {
     ClientMessage,
     JoinMessage,
@@ -89,7 +90,9 @@ async function handleMessage(message: ServerMessage): Promise<void> {
         
         case 'game_start':
             console.log('Game starting at client time (ms):', message.startTimeMs);
-            
+
+            // Reconstruct game from DTO received from server
+            game = SnakeGame.fromDTO(message.playerState);
 
             const targetTimeMs = message.startTimeMs;
             const countdownElement = document.getElementById('countdown');
@@ -105,7 +108,7 @@ async function handleMessage(message: ServerMessage): Promise<void> {
                 countdownElement.textContent = 'Starting...';
             }
 
-            resetGame();
+            // Start using reconstructed state
             startGame();
             break;
 
@@ -337,7 +340,7 @@ function drawGame(canvasId: string, game: SnakeGame): void {
 
     // Draw snake
     const snake = game.getSnake();
-    snake.forEach((segment, index) => {
+    snake.forEach((segment: Position, index: number) => {
         // Head is darker
         ctx.fillStyle = index === 0 ? '#2d5016' : '#4a7c2c';
         ctx.fillRect(

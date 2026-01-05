@@ -246,8 +246,8 @@ async function startGame(): Promise<void> {
         const startTime = performance.now() + COUNTDOWN_MS + res.timeOffset;
         const startMsg: GameStartMessage = {
             type: 'game_start',
-            playerState: initialGame,
-            opponentState: initialGame,
+            playerState: initialGame.toDTO(),
+            opponentState: initialGame.toDTO(),
             startTimeMs: startTime
         };
         player.send(startMsg);

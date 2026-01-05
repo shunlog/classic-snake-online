@@ -4,6 +4,6 @@
  */
 
 export { SnakeGame, Direction, GameStatus } from './snake.js';
-export type { Position } from './snake.js';
+export type { Position, SnakeGameDTO } from './snake.js';
 
 export * from './messages.js';

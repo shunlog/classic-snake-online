@@ -26,6 +26,25 @@ export type Direction = 'UP' | 'DOWN' | 'LEFT' | 'RIGHT';
  */
 export type GameStatus = 'NOT_STARTED' | 'PLAYING' | 'GAME_OVER';
 
+/**
+ * Serializable data transfer object for `SnakeGame`.
+ * Contains only plain data suitable for JSON transport.
+ */
+export interface SnakeGameDTO {
+    snake: Position[];
+    food: Position;
+    direction: Direction;
+    queuedDir1: Direction | null;
+    queuedDir2: Direction | null;
+    status: GameStatus;
+    score: number;
+    gridWidth: number;
+    gridHeight: number;
+    startTime: number;
+    elapsedTime: number;
+    tickCount: number;
+}
+
 export class SnakeGame {
     private snake: Position[];
     private food: Position;
@@ -178,6 +197,50 @@ export class SnakeGame {
         this.food = SnakeGame.generateFood(this.snake, this.gridWidth, this.gridHeight);
         
         this.checkRep();
+    }
+
+    /**
+     * Create a serializable DTO snapshot of the current game state.
+     */
+    public toDTO(): SnakeGameDTO {
+        return {
+            snake: this.snake.map(p => ({ x: p.x, y: p.y })),
+            food: { x: this.food.x, y: this.food.y },
+            direction: this.direction,
+            queuedDir1: this.queuedDir1,
+            queuedDir2: this.queuedDir2,
+            status: this.status,
+            score: this.score,
+            gridWidth: this.gridWidth,
+            gridHeight: this.gridHeight,
+            startTime: this.startTime,
+            elapsedTime: this.elapsedTime,
+            tickCount: this.tickCount
+        };
+    }
+
+    /**
+     * Reconstruct a `SnakeGame` instance from a DTO.
+     * Performs `checkRep()` to validate invariants.
+     */
+    public static fromDTO(dto: SnakeGameDTO): SnakeGame {
+        const initialLength = Math.max(1, dto.snake.length);
+        const game = new SnakeGame(dto.gridWidth, dto.gridHeight, initialLength);
+
+        game.snake = dto.snake.map(p => ({ x: p.x, y: p.y }));
+        game.food = { x: dto.food.x, y: dto.food.y };
+        game.direction = dto.direction;
+        game.queuedDir1 = dto.queuedDir1;
+        game.queuedDir2 = dto.queuedDir2;
+        game.status = dto.status;
+        game.score = dto.score;
+        // Preserve timing/counters from DTO
+        game.startTime = dto.startTime;
+        game.elapsedTime = dto.elapsedTime;
+        game.tickCount = dto.tickCount ?? 0;
+
+        game.checkRep();
+        return game;
     }
 
     /**

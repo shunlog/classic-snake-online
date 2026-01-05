@@ -3,7 +3,7 @@
  * All messages follow a discriminated union pattern for type safety
  */
 
-import { SnakeGame } from "./snake";
+import { SnakeGameDTO } from "./snake";
 
 /**
  * Player information
@@ -59,8 +59,8 @@ export interface PlayersListMessage {
 export interface GameStartMessage {
   type: 'game_start';
   startTimeMs: number; // in reference to client's performance.now()
-  playerState: SnakeGame;
-  opponentState: SnakeGame;
+  playerState: SnakeGameDTO;
+  opponentState: SnakeGameDTO;
 }
 
 /**
@@ -69,8 +69,8 @@ export interface GameStartMessage {
 export interface TickMessage {
   type: 'tick';
   tickCount: number;
-  playerState: SnakeGame;
-  opponentState: SnakeGame;
+  playerState: SnakeGameDTO;
+  opponentState: SnakeGameDTO;
 }
 
 export interface TimeSyncRequestMessage {
