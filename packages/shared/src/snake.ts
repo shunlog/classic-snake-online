@@ -21,10 +21,6 @@ export interface Position {
  */
 export type Direction = 'UP' | 'DOWN' | 'LEFT' | 'RIGHT';
 
-/**
- * Game state enumeration
- */
-export type GameStatus = 'NOT_STARTED' | 'PLAYING' | 'GAME_OVER';
 
 /**
  * Serializable data transfer object for `SnakeGame`.
@@ -36,7 +32,6 @@ export interface SnakeGameDTO {
     direction: Direction;
     queuedDir1: Direction | null;
     queuedDir2: Direction | null;
-    status: GameStatus;
     score: number;
     gridWidth: number;
     gridHeight: number;
@@ -51,7 +46,6 @@ export class SnakeGame {
     private direction: Direction;
     private queuedDir1: Direction | null;
     private queuedDir2: Direction | null;
-    private status: GameStatus;
     private score: number;
     private readonly gridWidth: number;
     private readonly gridHeight: number;
@@ -189,7 +183,7 @@ export class SnakeGame {
         this.direction = 'RIGHT';
         this.queuedDir1 = null;
         this.queuedDir2 = null;
-        this.status = 'NOT_STARTED';
+        // status removed
         this.score = 0;
         this.startTime = 0;
         this.elapsedTime = 0;
@@ -209,7 +203,6 @@ export class SnakeGame {
             direction: this.direction,
             queuedDir1: this.queuedDir1,
             queuedDir2: this.queuedDir2,
-            status: this.status,
             score: this.score,
             gridWidth: this.gridWidth,
             gridHeight: this.gridHeight,
@@ -232,7 +225,6 @@ export class SnakeGame {
         game.direction = dto.direction;
         game.queuedDir1 = dto.queuedDir1;
         game.queuedDir2 = dto.queuedDir2;
-        game.status = dto.status;
         game.score = dto.score;
         // Preserve timing/counters from DTO
         game.startTime = dto.startTime;
@@ -249,14 +241,8 @@ export class SnakeGame {
      * Mutates the game state to PLAYING and starts the timer
      */
     public start(): void {
-        if (this.status === 'PLAYING') {
-            return;
-        }
-
-        this.status = 'PLAYING';
         this.startTime = Date.now();
         this.elapsedTime = 0;
-        
         this.checkRep();
     }
 
@@ -273,10 +259,6 @@ export class SnakeGame {
      * - Direction is not a duplicate of the last effective direction
      */
     public canQueueDirection(newDirection: Direction): boolean {
-        if (this.status !== 'PLAYING') {
-            return false;
-        }
-
         if (this.queuedDir2 !== null) {
             // Both slots full
             return false;
@@ -334,10 +316,6 @@ export class SnakeGame {
      * - Updates elapsed time
      */
     public tick(): void {
-        if (this.status !== 'PLAYING') {
-            return;
-        }
-
         // Process queued direction
         if (this.queuedDir1 !== null) {
             this.direction = this.queuedDir1;
@@ -352,7 +330,6 @@ export class SnakeGame {
         // Check wall collision
         if (newHead.x < 0 || newHead.x >= this.gridWidth ||
             newHead.y < 0 || newHead.y >= this.gridHeight) {
-            this.status = 'GAME_OVER';
             this.checkRep();
             return;
         }
@@ -376,7 +353,6 @@ export class SnakeGame {
         for (let i = 1; i < this.snake.length; i++) {
             const segment = this.snake[i];
             if (newHead.x === segment.x && newHead.y === segment.y) {
-                this.status = 'GAME_OVER';
                 this.checkRep();
                 return;
             }
@@ -394,9 +370,6 @@ export class SnakeGame {
      * 
      * @returns Current game status
      */
-    public getStatus(): GameStatus {
-        return this.status;
-    }
 
     /**
      * Get the current score

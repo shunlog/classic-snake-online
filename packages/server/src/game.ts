@@ -105,9 +105,6 @@ export function handleTick(): void {
         // Advance game by one tick
         game.tick();
 
-        if (game.getStatus() === 'GAME_OVER') {
-            gameOver();
-        }
 
         // Opponent mapping (assumes two players)
         const opponent = sessions.find(s => s.id !== player.id);
@@ -124,8 +121,6 @@ export function handleTick(): void {
 }
 
 function gameOver(): void {
-    console.log('Game over.');
-    gameStatus = 'GAME_OVER';
 }
 
 export function requestTimeSync(connectionId: string): Promise<TimeSyncResult> {
