@@ -58,6 +58,7 @@ export interface PlayersListMessage {
 
 export interface GameStartMessage {
   type: 'game_start';
+  startTimeMs: number; // in reference to client's performance.now()
   playerState: SnakeGame;
   opponentState: SnakeGame;
 }

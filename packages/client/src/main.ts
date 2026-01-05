@@ -35,6 +35,10 @@ const pendingMessages = new Map<number, number>(); // tickCount -> timestamp
 let playerId: string | null = null;
 let players: PlayerInfo[] = [];
 
+function sleep(ms: number): Promise<void> {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+
 /**
  * Send a typed message to the server
  */
@@ -54,7 +58,7 @@ function parseMessage(data: string): ServerMessage {
 /**
  * Handle incoming server message
  */
-function handleMessage(message: ServerMessage): void {
+async function handleMessage(message: ServerMessage): Promise<void> {
     switch (message.type) {
         case 'joined':
             playerId = message.playerId;
@@ -82,6 +86,28 @@ function handleMessage(message: ServerMessage): void {
                 clientTimeMs: performance.now()
             });
             break;
+        
+        case 'game_start':
+            console.log('Game starting at client time (ms):', message.startTimeMs);
+            
+
+            const targetTimeMs = message.startTimeMs;
+            const countdownElement = document.getElementById('countdown');
+
+            if (countdownElement && typeof targetTimeMs === 'number') {
+                countdownElement.style.color = '#666';
+                while (performance.now() < targetTimeMs) {
+                    const remainingMs = Math.max(0, targetTimeMs - performance.now());
+                    const remainingSec = (remainingMs / 1000).toFixed(1);
+                    countdownElement.textContent = `Starting in ${remainingSec}s`;
+                    await sleep(100);
+                }
+                countdownElement.textContent = 'Starting...';
+            }
+
+            resetGame();
+            startGame();
+            break;
 
         case 'error':
             console.error('Server error:', message.message);
@@ -96,7 +122,7 @@ function handleMessage(message: ServerMessage): void {
 function initWebSocket(): void {
     ws = new WebSocket('ws://localhost:3001');
 
-    ws.onopen = () => {
+    ws.onopen = async () => {
         console.log('WebSocket connected to server');
         // Send join message
         const playerName = `Player ${Math.floor(Math.random() * 1000)}`;
@@ -104,20 +130,20 @@ function initWebSocket(): void {
         sendMessage(joinMsg);
     };
 
-    ws.onmessage = (event) => {
+    ws.onmessage = async (event) => {
         try {
             const message = parseMessage(event.data);
-            handleMessage(message);
+            await handleMessage(message);
         } catch (error) {
             console.error('Error parsing WebSocket message:', error);
         }
     };
 
-    ws.onerror = (error) => {
+    ws.onerror = async (error) => {
         console.error('WebSocket error:', error);
     };
 
-    ws.onclose = () => {
+    ws.onclose = async () => {
         console.log('WebSocket disconnected');
         playerId = null;
         players = [];

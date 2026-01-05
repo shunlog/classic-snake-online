@@ -3,15 +3,16 @@
  */
 
 import { performance } from 'node:perf_hooks';
-import type {
-    ClientMessage,
-    ServerMessage,
-    JoinedMessage,
-    PlayersListMessage,
-    ErrorMessage,
-    //   TickMessage,
-    TimeSyncRequestMessage,
-    TimeSyncResponseMessage
+import {
+    type ClientMessage,
+    type ServerMessage,
+    type JoinedMessage,
+    type PlayersListMessage,
+    type ErrorMessage,
+    type GameStartMessage,
+    type TimeSyncRequestMessage,
+    type TimeSyncResponseMessage,
+    SnakeGame
 } from '@snake/shared';
 
 const MAX_PLAYERS = 2;
@@ -21,6 +22,10 @@ const MAX_PLAYERS = 2;
 // const CUTOFF_TIME_MS = 150;
 let tickCount = 0;
 const TIME_SYNC_TIMEOUT_MS = 2000;
+const GRID_WIDTH = 20;
+const GRID_HEIGHT = 20;
+const INITIAL_SNAKE_LENGTH = 3;
+const COUNTDOWN_MS = 3000;
 
 export type SendMessage = (message: ServerMessage) => void;
 
@@ -55,7 +60,7 @@ const pendingTimeSync = new Map<string, PendingTimeSync>();
 export interface TimeSyncResult {
     requestId: string;
     latencyMs: number;
-    clientTimeMs: number;
+    timeOffset: number;  // the ms difference: clientTime - serverTime
 }
 
 export function parseClientMessage(data: Buffer): ClientMessage {
@@ -168,11 +173,8 @@ export async function handleMessage(
 
             broadcastPlayerList();
 
-            try {
-                let res = await requestTimeSync(connectionId)
-                console.log(`Time sync result for ${connectionId}:`, res);
-            } catch (error) {
-                console.error(`Time sync failed for ${connectionId}:`, error);
+            if (players.size === MAX_PLAYERS) {
+                startGame();
             }
 
             break;
@@ -197,10 +199,12 @@ function handleTimeSyncResponse(
     clearTimeout(pending.timeoutId);
 
     const latencyMs = performance.now() - pending.startTime;
+    const serverNow = performance.now();
+    const timeOffset = message.clientTimeMs - serverNow - latencyMs / 2;
     pending.resolve({
         requestId: message.requestId,
         latencyMs,
-        clientTimeMs: message.clientTimeMs
+        timeOffset
     });
 }
 
@@ -229,4 +233,23 @@ function rejectPendingSyncs(connectionId: string, reason: string): void {
             pendingTimeSync.delete(requestId);
         }
     });
+}
+
+
+async function startGame(): Promise<void> {
+    console.log('Both players connected. Starting game...');
+
+    const initialGame = new SnakeGame(GRID_WIDTH, GRID_HEIGHT, INITIAL_SNAKE_LENGTH);
+    for (const player of players.values()) {
+        let res = await requestTimeSync(player.id)
+        console.log(`Time sync result for ${player.id}:`, res);
+        const startTime = performance.now() + COUNTDOWN_MS + res.timeOffset;
+        const startMsg: GameStartMessage = {
+            type: 'game_start',
+            playerState: initialGame,
+            opponentState: initialGame,
+            startTimeMs: startTime
+        };
+        player.send(startMsg);
+    }
 }
