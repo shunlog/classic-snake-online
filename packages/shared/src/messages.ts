@@ -6,14 +6,6 @@
 import { SnakeGameDTO, Direction } from "./snake";
 
 /**
- * Player information
- */
-export interface PlayerInfo {
-  id: string;
-  name: string;
-}
-
-/**
  * Messages from client to server
  */
 export type ClientMessage =
@@ -51,6 +43,15 @@ export interface JoinMessage {
 export interface JoinedMessage {
   type: 'joined';
   playerId: string;
+  name: string;
+}
+
+
+/**
+ * Player information
+ */
+export interface PlayerInfo {
+  id: string;
   name: string;
 }
 

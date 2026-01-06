@@ -7,19 +7,20 @@
  * - Rendering to HTML canvas
  */
 
-import { SnakeGame, Direction, GameOverError } from '@snake/shared';
+import { SnakeGame, Direction, GameOverError, ClientMessage, ServerMessage, PlayerInfo } from '@snake/shared';
 import { GameLoop } from './gameLoop.js';
 import { draw, initDraw } from './draw.js';
 
 export type GameStatus = 'NOT_STARTED' | 'PLAYING' | 'GAME_OVER';
 
-const SNAKE_LENGTH = 4; // Initial snake length
+const SNAKE_LENGTH = 4;
+const SNAKE_TICK = 0.2;
 
-// Tick duration when the snake moves (seconds)
-const SNAKE_TICK = 0.2; // 200 ms
-
-let dtAcc = 0;  // seconds, accumulated since last snake tick
+let dtAcc = 0;
 let status: GameStatus = 'NOT_STARTED';
+let ws: WebSocket | null = null;
+let players: PlayerInfo[] = [];
+let myPlayerId: string | null = null;
 
 // Game state
 let game: SnakeGame;
@@ -41,12 +42,87 @@ let gameLoop: GameLoop = new GameLoop({
     handleInput: _handle_input
 });
 
-/**
- * Initialize the game
- */
 function init(): void {
     initDraw();
     gameLoop.start();
+    connectWebSocket();
+}
+
+function connectWebSocket(): void {
+    ws = new WebSocket('ws://localhost:3000');
+
+    ws.onopen = () => {
+        console.log('Connected to server');
+        updateConnectionStatus('Connected');
+        const joinMessage: ClientMessage = {
+            type: 'join',
+            name: 'Player-' + Math.floor(Math.random() * 1000)
+        };
+        ws?.send(JSON.stringify(joinMessage));
+    };
+
+    ws.onmessage = (event) => {
+        const message: ServerMessage = JSON.parse(event.data);
+        handleServerMessage(message);
+    };
+
+    ws.onerror = (error) => {
+        console.error('WebSocket error:', error);
+        updateConnectionStatus('Error');
+    };
+
+    ws.onclose = () => {
+        console.log('Disconnected from server');
+        updateConnectionStatus('Disconnected');
+    };
+}
+
+function handleServerMessage(message: ServerMessage): void {
+    switch (message.type) {
+        case 'joined':
+            console.log('Joined as', message.playerId);
+            myPlayerId = message.playerId;
+            break;
+        case 'players':
+            console.log('Players:', message.players);
+            players = message.players;
+            updatePlayersUI();
+            break;
+        case 'game_start':
+            console.log('Game starting');
+            break;
+        case 'tick':
+            break;
+    }
+}
+
+function updateConnectionStatus(status: string): void {
+    const statusElement = document.getElementById('connectionStatus');
+    if (statusElement) {
+        statusElement.textContent = status;
+    }
+}
+
+function updatePlayersUI(): void {
+    const playersListElement = document.getElementById('playersList');
+    if (!playersListElement) {
+        console.log('playersList element not found');
+        return;
+    }
+
+    if (players.length === 0) {
+        playersListElement.innerHTML = '<li>Waiting for players...</li>';
+        return;
+    }
+
+    playersListElement.innerHTML = players
+        .map(player => {
+            const isMe = player.id === myPlayerId;
+            const className = isMe ? 'me' : '';
+            const suffix = isMe ? ' (You)' : '';
+            return `<li class="${className}">${player.name}${suffix}</li>`;
+        })
+        .join('');
 }
 
 /**
@@ -132,3 +208,4 @@ function _draw(): void {
 if (typeof window !== 'undefined') {
     window.addEventListener('DOMContentLoaded', init);
 }
+
