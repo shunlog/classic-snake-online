@@ -18,7 +18,6 @@ export interface PlayerInfo {
  */
 export type ClientMessage =
   | JoinMessage
-  | TimeSyncResponseMessage
   | InputMessage;
 /**
  * Client sends a direction input at a specific local tick
@@ -36,9 +35,7 @@ export type ServerMessage =
   | JoinedMessage
   | PlayersListMessage
   | GameStartMessage
-  | TickMessage
-  | ErrorMessage
-  | TimeSyncRequestMessage;
+  | TickMessage;
 
 /**
  * Client requests to join the lobby
@@ -80,23 +77,4 @@ export interface TickMessage {
   tickCount: number;
   playerState: SnakeGameDTO;
   opponentState: SnakeGameDTO;
-}
-
-export interface TimeSyncRequestMessage {
-  type: 'time_sync_request';
-  requestId: string;
-}
-
-export interface TimeSyncResponseMessage {
-  type: 'time_sync_response';
-  requestId: string;
-  clientTimeMs: number;
-}
-
-/**
- * Server error message
- */
-export interface ErrorMessage {
-  type: 'error';
-  message: string;
 }
