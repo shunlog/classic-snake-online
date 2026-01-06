@@ -35,6 +35,7 @@
         }
 
         .games-container {
+            position: relative;
             display: flex;
             gap: 20px;
             justify-content: center;
@@ -42,7 +43,6 @@
         }
 
         .game-wrapper {
-            position: relative;
             display: inline-block;
             background: white;
             border-radius: 8px;
@@ -147,8 +147,16 @@
 <body>
     <div class="container">
         <h1>CLASSIC SNAKE</h1>
-            <div class="game-wrapper">
-                <canvas id="gameCanvas" class="game-canvas"></canvas>
+            <div class="games-container">
+                <div class="game-wrapper">
+                    <h2>Your Game</h2>
+                    <canvas id="gameCanvas" class="game-canvas"></canvas>
+                </div>
+                <div class="game-wrapper">
+                    <h2>Opponent</h2>
+                    <canvas id="opponentCanvas" class="game-canvas"></canvas>
+                </div>
+
                 <div id="status">Press SPACE to start</div>
             </div>
         <div class="info">

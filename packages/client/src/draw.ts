@@ -1,4 +1,5 @@
 import { SnakeGame } from '@snake/shared';
+import { GameStatus } from './main.js';
 
 const CELL_SIZE = 20;
 
@@ -75,7 +76,8 @@ function drawGame(canvasId: string, game: SnakeGame): void {
  */
 export function draw(game: SnakeGame, fps: number, status: GameStatus): void {
     drawGame('gameCanvas', game);
-    
+    drawGame('opponentCanvas', game);
+
     // Update score display
     const scoreElement = document.getElementById('score');
     if (scoreElement) {
