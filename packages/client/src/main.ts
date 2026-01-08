@@ -7,17 +7,17 @@
  * - Rendering to HTML canvas
  */
 
-import { SnakeGame, Direction, GameOverError, ClientMessage, ServerMessage, PlayerInfo } from '@snake/shared';
+import { SnakeGame, Direction, ClientMessage, ServerMessage, PlayerInfo, InputMessage } from '@snake/shared';
 import { GameLoop } from './gameLoop.js';
 import { draw, initDraw } from './draw.js';
 
-export type GameStatus = 'NOT_STARTED' | 'PLAYING' | 'GAME_OVER';
+export type ClientStatus = 'WATCHING' | 'WAITING' | 'COUNTDOWN' |  'PLAYING' | 'RESULTS_COUNTDOWN';
 
 const SNAKE_LENGTH = 4;
 const SNAKE_TICK = 0.2;
 
 let dtAcc = 0;
-let status: GameStatus = 'NOT_STARTED';
+let status: ClientStatus = 'WATCHING';
 let ws: WebSocket | null = null;
 let players: PlayerInfo[] = [];
 let myPlayerId: string | null = null;
@@ -31,9 +31,6 @@ function resetGame(): void {
     dtAcc = 0;
 }
 
-function startGame(): void {
-    status = 'PLAYING';
-}
 
 // Game loop instance
 let gameLoop: GameLoop = new GameLoop({
@@ -89,9 +86,10 @@ function handleServerMessage(message: ServerMessage): void {
             updatePlayersUI();
             break;
         case 'game_start':
-            console.log('Game starting');
+            game = SnakeGame.fromDTO(message.playerState);
             break;
         case 'tick':
+            game = SnakeGame.fromDTO(message.playerState);
             break;
     }
 }
@@ -129,18 +127,6 @@ function updatePlayersUI(): void {
  * Handle keyboard input
  */
 function _handle_input(event: KeyboardEvent): void {
-    // Start/restart game with spacebar
-    if (event.code === 'Space') {
-        event.preventDefault();
-        if (status === 'NOT_STARTED') {
-            status = 'PLAYING';
-        } else if (status === 'GAME_OVER') {
-            resetGame();
-            startGame();
-        }
-        return;
-    }
-
     // Direction input (only during gameplay)
     if (status !== 'PLAYING') {
         return;
@@ -172,10 +158,18 @@ function _handle_input(event: KeyboardEvent): void {
     }
 
     if (direction !== null) {
-        game.queueDirection(direction);
+        handleDirectionInput(direction);
     }
 }
 
+function handleDirectionInput(direction: Direction): void {
+    ws?.send(JSON.stringify({
+        type: 'input',
+        direction: direction,
+        tickCount: game.getTickCount()
+    } as InputMessage));
+    // game.queueDirection(direction);
+}
 
 /**
  * Update game state (called with fixed timestep, in seconds)
@@ -190,11 +184,7 @@ function _update(dt: number): void {
         try {
             game.tick();
         } catch (error) {
-            if (error instanceof GameOverError) {
-                status = 'GAME_OVER';
-            } else {
-                throw error;
-            }
+            console.log('Client predicts game over');
         }
         dtAcc -= SNAKE_TICK;
     }

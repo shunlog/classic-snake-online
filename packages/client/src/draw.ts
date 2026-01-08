@@ -1,5 +1,5 @@
 import { SnakeGame } from '@snake/shared';
-import { GameStatus } from './main.js';
+import { ClientStatus } from './main.js';
 
 const CELL_SIZE = 20;
 
@@ -74,7 +74,7 @@ function drawGame(canvasId: string, game: SnakeGame): void {
 /**
  * Render the game state to canvas
  */
-export function draw(game: SnakeGame, fps: number, status: GameStatus): void {
+export function draw(game: SnakeGame, fps: number, status: ClientStatus): void {
     drawGame('gameCanvas', game);
     drawGame('opponentCanvas', game);
 
@@ -108,10 +108,10 @@ export function draw(game: SnakeGame, fps: number, status: GameStatus): void {
     // Update status display
     const statusElement = document.getElementById('status');
     if (statusElement) {
-        if (status === 'NOT_STARTED') {
+        if (status === 'WATCHING') {
             statusElement.textContent = 'Press SPACE to start';
             statusElement.style.display = 'block';
-        } else if (status === 'GAME_OVER') {
+        } else if (status === 'RESULTS_COUNTDOWN') {
             statusElement.textContent = `Game Over! Score: ${game.getScore()}. Press SPACE to restart`;
             statusElement.style.display = 'block';
         } else {
