@@ -9,7 +9,7 @@
 
 import { Direction, ClientMessage, ServerMessage } from '@snake/shared';
 import { GameLoop } from './gameLoop.js';
-import { draw } from './draw.js';
+import { draw, updatePlayersUI } from './draw.js';
 import { Client } from './client.js';
 
 let ws: WebSocket | null = null;
@@ -39,17 +39,13 @@ function connectWebSocket(): void {
     ws.onopen = () => {
         console.log('Connected to server');
         updateConnectionStatus('Connected');
-        const joinMessage: ClientMessage = {
-            type: 'join',
-            name: 'Player-' + Math.floor(Math.random() * 1000)
-        };
-        sendMessage(joinMessage);
+        client.onConnect();
     };
 
     ws.onmessage = (event) => {
         const message: ServerMessage = JSON.parse(event.data);
         client.handleMessage(message);
-        updatePlayersUI();
+        updatePlayersUI(client.getPlayers(), client.getMyPlayerId());
     };
 
     ws.onerror = (error) => {
@@ -70,30 +66,6 @@ function updateConnectionStatus(status: string): void {
     }
 }
 
-function updatePlayersUI(): void {
-    const playersListElement = document.getElementById('playersList');
-    if (!playersListElement) {
-        console.log('playersList element not found');
-        return;
-    }
-
-    const players = client.getPlayers();
-    const myPlayerId = client.getMyPlayerId();
-
-    if (players.length === 0) {
-        playersListElement.innerHTML = '<li>Waiting for players...</li>';
-        return;
-    }
-
-    playersListElement.innerHTML = players
-        .map(player => {
-            const isMe = player.id === myPlayerId;
-            const className = isMe ? 'me' : '';
-            const suffix = isMe ? ' (You)' : '';
-            return `<li class="${className}">${player.name}${suffix}</li>`;
-        })
-        .join('');
-}
 
 /**
  * Handle keyboard input

@@ -22,6 +22,14 @@ export class Client {
         this.game = new SnakeGame(20, 20, SNAKE_LENGTH);
     }
 
+    onConnect(): void {
+        const joinMessage: ClientMessage = {
+            type: 'join',
+            name: 'Player-' + Math.floor(Math.random() * 1000)
+        };
+        this.sendMessage(joinMessage);
+    }
+
     /**
      * Handle incoming server messages
      */

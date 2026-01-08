@@ -1,4 +1,4 @@
-import { SnakeGame } from '@snake/shared';
+import { PlayerInfo, SnakeGame } from '@snake/shared';
 import { ClientStatus } from './client.js';
 
 const CELL_SIZE = 20;
@@ -115,4 +115,27 @@ export function draw(game: SnakeGame, fps: number, status: ClientStatus): void {
             statusElement.style.display = 'none';
         }
     }
+}
+
+
+export function updatePlayersUI(players: PlayerInfo[], myId: string | null): void {
+    const playersListElement = document.getElementById('playersList');
+    if (!playersListElement) {
+        console.log('playersList element not found');
+        return;
+    }
+
+    if (players.length === 0) {
+        playersListElement.innerHTML = '<li>Waiting for players...</li>';
+        return;
+    }
+
+    playersListElement.innerHTML = players
+        .map(player => {
+            const isMe = player.id === myId;
+            const className = isMe ? 'me' : '';
+            const suffix = isMe ? ' (You)' : '';
+            return `<li class="${className}">${player.name}${suffix}</li>`;
+        })
+        .join('');
 }
