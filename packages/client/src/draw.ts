@@ -4,9 +4,6 @@ import { ClientStatus } from './client.js';
 const CELL_SIZE = 20;
 
 
-export function initDraw(): void {
-}
-
 /**
  * Draw a game to a specific canvas (either player's or opponent's view)
  */

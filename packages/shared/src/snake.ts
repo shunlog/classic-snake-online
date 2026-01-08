@@ -173,18 +173,18 @@ export class SnakeGame {
         if (gridWidth <= 0 || gridHeight <= 0) {
             throw new Error('Grid dimensions must be positive');
         }
-        
+
         if (initialLength < 1) {
             throw new Error('Initial length must be at least 1');
         }
-        
+
         this.gridWidth = gridWidth;
         this.gridHeight = gridHeight;
-        
+
         // Initialize with default values
         const centerX = Math.floor(gridWidth / 2);
         const centerY = Math.floor(gridHeight / 2);
-        
+
         // Create snake with head at center, body extending to the left
         this.snake = [];
         for (let i = 0; i < initialLength; i++) {
@@ -203,7 +203,7 @@ export class SnakeGame {
         this.elapsedTime = 0;
         this.tickCount = 0;
         this.food = SnakeGame.generateFood(this.snake, this.gridWidth, this.gridHeight);
-        
+
         this.checkRep();
     }
 
@@ -315,7 +315,7 @@ export class SnakeGame {
             // First slot empty
             this.queuedDir1 = newDirection;
         }
-        
+
         this.checkRep();
     }
 

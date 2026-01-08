@@ -9,7 +9,7 @@
 
 import { Direction, ClientMessage, ServerMessage } from '@snake/shared';
 import { GameLoop } from './gameLoop.js';
-import { draw, initDraw } from './draw.js';
+import { draw } from './draw.js';
 import { Client } from './client.js';
 
 let ws: WebSocket | null = null;
@@ -24,7 +24,6 @@ let gameLoop: GameLoop = new GameLoop({
 });
 
 function init(): void {
-    initDraw();
     gameLoop.start();
     connectWebSocket();
 }

@@ -57,12 +57,12 @@ describe('SnakeGame ADT', () => {
             const game = new SnakeGame(20, 20, 3);
 
             expect(game.getSnake().length).toBe(3);
-            
+
             // Head should be at center
             const snake = game.getSnake();
             expect(snake[0].x).toBe(10);
             expect(snake[0].y).toBe(10);
-            
+
             // Body should extend to the left
             expect(snake[1].x).toBe(9);
             expect(snake[1].y).toBe(10);
@@ -85,7 +85,7 @@ describe('SnakeGame ADT', () => {
             const snake = game.getSnake();
 
             // Check that food is not on any snake segment
-            const foodOnSnake = snake.some(segment => 
+            const foodOnSnake = snake.some(segment =>
                 segment.x === food.x && segment.y === food.y
             );
             expect(foodOnSnake).toBe(false);
@@ -107,7 +107,7 @@ describe('SnakeGame ADT', () => {
             const game = new SnakeGame();
             game.start();
             const startTime = game.getStartTime();
-            
+
             game.start();
             expect(game.getStartTime()).toBe(startTime);
         });
@@ -172,14 +172,14 @@ describe('SnakeGame ADT', () => {
             const game = new SnakeGame();
             game.start();
             const initialHead = game.getSnake()[0];
-            
+
             // Queue UP direction (current is RIGHT)
             game.queueDirection('UP');
-            
+
             // After tick, snake should move UP
             game.tick();
             const newHead = game.getSnake()[0];
-            
+
             expect(newHead.x).toBe(initialHead.x);
             expect(newHead.y).toBe(initialHead.y - 1);
             expect(game.getDirection()).toBe('UP');
@@ -189,16 +189,16 @@ describe('SnakeGame ADT', () => {
             const game = new SnakeGame();
             game.start();
             const initialHead = game.getSnake()[0];
-            
+
             // Queue UP then LEFT
             game.queueDirection('UP');
             game.queueDirection('LEFT');
-            
+
             // First tick: should move UP
             game.tick();
             expect(game.getDirection()).toBe('UP');
             expect(game.getSnake()[0].y).toBe(initialHead.y - 1);
-            
+
             // Second tick: should move LEFT
             game.tick();
             expect(game.getDirection()).toBe('LEFT');
@@ -208,20 +208,20 @@ describe('SnakeGame ADT', () => {
         test('ignores third direction when both slots full', () => {
             const game = new SnakeGame();
             game.start();
-            
+
             // Queue UP, LEFT, then try to queue DOWN (should be ignored)
             game.queueDirection('UP');
             game.queueDirection('LEFT');
             game.queueDirection('DOWN');
-            
+
             // First tick: should move UP
             game.tick();
             expect(game.getDirection()).toBe('UP');
-            
+
             // Second tick: should move LEFT (not DOWN)
             game.tick();
             expect(game.getDirection()).toBe('LEFT');
-            
+
             // Third tick: should continue LEFT (DOWN was ignored)
             game.tick();
             expect(game.getDirection()).toBe('LEFT');
@@ -230,21 +230,21 @@ describe('SnakeGame ADT', () => {
         test('processes queue correctly after tick', () => {
             const game = new SnakeGame();
             game.start();
-            
+
             // Queue UP and LEFT, tick once, then queue RIGHT
             game.queueDirection('UP');
             game.queueDirection('LEFT');
             game.tick();  // Processes UP, LEFT moves to first slot
             game.queueDirection('RIGHT');  // Try to queue RIGHT
-            
+
             // Current direction is UP, first queued is LEFT
             // RIGHT is opposite of LEFT (next direction in queue)
             // So RIGHT should be rejected
-            
+
             // After tick, should move LEFT
             game.tick();
             expect(game.getDirection()).toBe('LEFT');
-            
+
             // Another tick should continue LEFT (RIGHT was not queued)
             game.tick();
             expect(game.getDirection()).toBe('LEFT');
@@ -394,22 +394,22 @@ describe('SnakeGame ADT', () => {
             // Start with longer snake to ensure self-collision
             const game = new SnakeGame(20, 20, 6);
             game.start();
-            
+
             // Create a tight loop that causes self-collision
             // Snake: (10,10), (9,10), (8,10), (7,10), (6,10), (5,10)
             // Move UP: head at (10,9)
             game.queueDirection('UP');
             game.tick();
             // Snake: (10,9), (10,10), (9,10), (8,10), (7,10), (6,10)
-            
+
             // Move LEFT: head at (9,9)
             game.queueDirection('LEFT');
             game.tick();
             // Snake: (9,9), (10,9), (10,10), (9,10), (8,10), (7,10)
-            
+
             // Move DOWN: head at (9,10) - COLLISION with body at index 3
             game.queueDirection('DOWN');
-            
+
             // This tick should cause self-collision
             expect(() => game.tick()).toThrow(GameOverError);
         });
@@ -428,7 +428,7 @@ describe('SnakeGame ADT', () => {
 
         // Removed does nothing when game over (status logic removed)
     });
-    
+
     // Removed getStatus describe block (status logic removed)
 
     describe('getScore', () => {
@@ -482,7 +482,7 @@ describe('SnakeGame ADT', () => {
 
             // Should be different array instances
             expect(snake1).not.toBe(snake2);
-            
+
             // But with equal values
             expect(snake1).toEqual(snake2);
         });
@@ -494,7 +494,7 @@ describe('SnakeGame ADT', () => {
 
             // Should be different object instances
             expect(food1).not.toBe(food2);
-            
+
             // But with equal values
             expect(food1).toEqual(food2);
         });
@@ -503,10 +503,10 @@ describe('SnakeGame ADT', () => {
             const game = new SnakeGame();
             const snake = game.getSnake();
             const originalLength = snake.length;
-            
+
             // Try to modify the returned array by casting
             (snake as any).push({ x: 99, y: 99 });
-            
+
             // Game state should be unchanged
             expect(game.getSnake().length).toBe(originalLength);
         });
@@ -515,10 +515,10 @@ describe('SnakeGame ADT', () => {
             const game = new SnakeGame();
             const food = game.getFood();
             const originalX = food.x;
-            
+
             // Try to modify the returned object
             (food as any).x = 99;
-            
+
             // Game state should be unchanged
             expect(game.getFood().x).toBe(originalX);
         });
@@ -589,10 +589,10 @@ describe('SnakeGame ADT', () => {
             // Should move: RIGHT (initial) -> UP -> LEFT -> LEFT (not DOWN/RIGHT)
             game.tick();
             expect(game.getDirection()).toBe('UP');
-            
+
             game.tick();
             expect(game.getDirection()).toBe('LEFT');
-            
+
             game.tick();
             // Should continue LEFT, proving DOWN and RIGHT were not queued
             expect(game.getDirection()).toBe('LEFT');
@@ -605,7 +605,7 @@ describe('SnakeGame ADT', () => {
             game.start();
             game.tick();
             game.tick();
-            expect(() => {game.tick()}).toThrow(GameOverError);
+            expect(() => { game.tick() }).toThrow(GameOverError);
         });
 
 
@@ -616,12 +616,12 @@ describe('SnakeGame ADT', () => {
             // Create a tight loop that causes self-collision
             game.queueDirection('UP');
             game.tick();
-            
+
             game.queueDirection('LEFT');
             game.tick();
-            
+
             game.queueDirection('DOWN');
-            
+
             // Next tick should cause self-collision
             expect(() => game.tick()).toThrow(GameOverError);
         });
