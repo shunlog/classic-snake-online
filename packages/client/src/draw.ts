@@ -1,5 +1,5 @@
 import { SnakeGame } from '@snake/shared';
-import { ClientStatus } from './main.js';
+import { ClientStatus } from './client.js';
 
 const CELL_SIZE = 20;
 

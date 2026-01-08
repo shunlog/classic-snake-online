@@ -7,29 +7,13 @@
  * - Rendering to HTML canvas
  */
 
-import { SnakeGame, Direction, ClientMessage, ServerMessage, PlayerInfo, InputMessage } from '@snake/shared';
+import { Direction, ClientMessage, ServerMessage } from '@snake/shared';
 import { GameLoop } from './gameLoop.js';
 import { draw, initDraw } from './draw.js';
+import { Client } from './client.js';
 
-export type ClientStatus = 'WATCHING' | 'WAITING' | 'COUNTDOWN' |  'PLAYING' | 'RESULTS_COUNTDOWN';
-
-const SNAKE_LENGTH = 4;
-const SNAKE_TICK = 0.2;
-
-let dtAcc = 0;
-let status: ClientStatus = 'WATCHING';
 let ws: WebSocket | null = null;
-let players: PlayerInfo[] = [];
-let myPlayerId: string | null = null;
-
-// Game state
-let game: SnakeGame;
-resetGame();
-
-function resetGame(): void {
-    game = new SnakeGame(20, 20, SNAKE_LENGTH);
-    dtAcc = 0;
-}
+let client: Client;
 
 
 // Game loop instance
@@ -45,7 +29,12 @@ function init(): void {
     connectWebSocket();
 }
 
+function sendMessage(message: ClientMessage): void {
+    ws?.send(JSON.stringify(message));
+}
+
 function connectWebSocket(): void {
+    client = new Client(sendMessage);
     ws = new WebSocket('ws://localhost:3000');
 
     ws.onopen = () => {
@@ -55,12 +44,13 @@ function connectWebSocket(): void {
             type: 'join',
             name: 'Player-' + Math.floor(Math.random() * 1000)
         };
-        ws?.send(JSON.stringify(joinMessage));
+        sendMessage(joinMessage);
     };
 
     ws.onmessage = (event) => {
         const message: ServerMessage = JSON.parse(event.data);
-        handleServerMessage(message);
+        client.handleMessage(message);
+        updatePlayersUI();
     };
 
     ws.onerror = (error) => {
@@ -72,26 +62,6 @@ function connectWebSocket(): void {
         console.log('Disconnected from server');
         updateConnectionStatus('Disconnected');
     };
-}
-
-function handleServerMessage(message: ServerMessage): void {
-    switch (message.type) {
-        case 'joined':
-            console.log('Joined as', message.playerId);
-            myPlayerId = message.playerId;
-            break;
-        case 'players':
-            console.log('Players:', message.players);
-            players = message.players;
-            updatePlayersUI();
-            break;
-        case 'game_start':
-            game = SnakeGame.fromDTO(message.playerState);
-            break;
-        case 'tick':
-            game = SnakeGame.fromDTO(message.playerState);
-            break;
-    }
 }
 
 function updateConnectionStatus(status: string): void {
@@ -107,6 +77,9 @@ function updatePlayersUI(): void {
         console.log('playersList element not found');
         return;
     }
+
+    const players = client.getPlayers();
+    const myPlayerId = client.getMyPlayerId();
 
     if (players.length === 0) {
         playersListElement.innerHTML = '<li>Waiting for players...</li>';
@@ -127,11 +100,6 @@ function updatePlayersUI(): void {
  * Handle keyboard input
  */
 function _handle_input(event: KeyboardEvent): void {
-    // Direction input (only during gameplay)
-    if (status !== 'PLAYING') {
-        return;
-    }
-
     let direction: Direction | null = null;
 
     switch (event.code) {
@@ -158,40 +126,19 @@ function _handle_input(event: KeyboardEvent): void {
     }
 
     if (direction !== null) {
-        handleDirectionInput(direction);
+        client.handleDirectionInput(direction);
     }
-}
-
-function handleDirectionInput(direction: Direction): void {
-    ws?.send(JSON.stringify({
-        type: 'input',
-        direction: direction,
-        tickCount: game.getTickCount()
-    } as InputMessage));
-    // game.queueDirection(direction);
 }
 
 /**
  * Update game state (called with fixed timestep, in seconds)
  */
 function _update(dt: number): void {
-    if (status !== 'PLAYING') {
-        return;
-    }
-
-    dtAcc += dt;
-    if (dtAcc >= SNAKE_TICK) {
-        try {
-            game.tick();
-        } catch (error) {
-            console.log('Client predicts game over');
-        }
-        dtAcc -= SNAKE_TICK;
-    }
+    client.update(dt);
 }
 
 function _draw(): void {
-    draw(game, gameLoop.fps, status);
+    draw(client.getGame(), gameLoop.fps, client.getStatus());
 }
 
 // Start the game when DOM is ready
