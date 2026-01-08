@@ -10,7 +10,7 @@
 import { Direction, ClientMessage, ServerMessage } from '@snake/shared';
 import { GameLoop } from './gameLoop.js';
 import { draw, updatePlayersUI } from './draw.js';
-import { Client } from './client.js';
+import { Client } from '@snake/client';
 
 let ws: WebSocket | null = null;
 let client: Client;

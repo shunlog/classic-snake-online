@@ -6,10 +6,10 @@
   "type": "module",
   "scripts": {
     "build": "pnpm -r build",
-    "test": "pnpm --filter @snake/shared test",
-    "dev:client": "pnpm --filter @snake/client dev",
+    "test": "pnpm -r test",
+    "dev:client": "pnpm --filter @snake/web-ui dev",
     "dev:server": "pnpm --filter @snake/server dev",
-    "preview:client": "pnpm --filter @snake/client preview"
+    "preview:client": "pnpm --filter @snake/web-ui preview"
   },
   "keywords": ["snake", "game", "typescript", "canvas"],
   "author": "",
