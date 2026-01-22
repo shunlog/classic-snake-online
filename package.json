@@ -1,0 +1,12 @@
+{
+  "name": "snake-online",
+  "private": true,
+  "scripts": {
+    "test": "vitest",
+    "dev": "pnpm --recursive --parallel dev"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0",
+    "vitest": "^1.0.0"
+  }
+}
