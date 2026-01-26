@@ -1,12 +1,12 @@
 import { WebSocketServer, WebSocket } from 'ws';
-import { ServerLogic, ConnID, generateConnId, ClientMessage, ServerMessage }
+import { ServerLogic, ClientID, generateClientID, ClientMessage, ServerMessage }
     from '@snake/shared';
 
 const PORT = 3000;
 
-const connections = new Map<ConnID, WebSocket>();
+const connections = new Map<ClientID, WebSocket>();
 
-function sendToClient(connId: ConnID, message: ServerMessage): void {
+function sendToClient(connId: ClientID, message: ServerMessage): void {
     const ws = connections.get(connId);
     if (ws) {
         ws.send(JSON.stringify(message));
@@ -18,7 +18,7 @@ const server = new ServerLogic(sendToClient);
 const wss = new WebSocketServer({ port: PORT });
 console.log(`WebSocket server running on ws://localhost:${PORT}`);
 wss.on('connection', (ws: WebSocket) => {
-    const connId = generateConnId();
+    const connId = generateClientID();
     connections.set(connId, ws);
     console.log('Client connected');
 
@@ -33,7 +33,7 @@ wss.on('connection', (ws: WebSocket) => {
     });
 
     ws.on('close', () => {
-        server.handleClose(connId);
+        server.handleDisconnect(connId);
         connections.delete(connId);
     });
 });

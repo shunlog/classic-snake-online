@@ -25,7 +25,7 @@ export interface InputMessage {
  */
 export type ServerMessage =
   | JoinedMessage
-  | PlayersListMessage
+  | ClientsListMessage
   | GameStartMessage
   | TickMessage;
 
@@ -42,25 +42,25 @@ export interface JoinMessage {
  */
 export interface JoinedMessage {
   type: 'joined';
-  playerId: string;
+  clientId: string;
   name: string;
 }
 
 
 /**
- * Player information
+ * Client information
  */
-export interface PlayerInfo {
-  id: string;
+export interface ClientInfo {
+  clientId: string;
   name: string;
 }
 
 /**
- * Server sends updated list of players
+ * Server sends updated list of clients
  */
-export interface PlayersListMessage {
-  type: 'players';
-  players: PlayerInfo[];
+export interface ClientsListMessage {
+  type: 'clients';
+  clients: ClientInfo[];
 }
 
 export interface GameStartMessage {

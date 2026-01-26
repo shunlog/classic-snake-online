@@ -1,52 +1,65 @@
-/**
- * Server class for managing game state and client connections
- */
+/*
+Server ADT
+- uses a handleMessage method and callbacks to communicate with clients 
+  rather than managing WebSocket connections directly
+- has a tick() method
+*/
 
-import { ClientMessage, ServerMessage, PlayerInfo, PlayersListMessage } from './messages';
+import { ClientMessage, ServerMessage, ClientInfo, ClientsListMessage } from './messages';
 import assert from 'assert';
 
 export type ServerStatus = 'WAITING_PLAYERS' | 'COUNTDOWN' | 'PLAYING' | 'RESULTS_COUNTDOWN';
-export type ConnID = string;
+export type ClientID = string;
 
 const PLAYER_SLOTS = 2;
 
-export function generateConnId(): ConnID {
+export function generateClientID(): ClientID {
     return Math.random().toString(36).substring(2, 15);
 }
 
 export class ServerLogic {
-    private clients = new Map<ConnID, PlayerInfo>();
-    private players = new Array<ConnID>();
+    // Clients are added as soon as they connect to the WebSocket server
+    private clients = new Map<ClientID, ClientInfo>();
+    // Players is a subset of `clients` who pressed "ready"
+    private ready = new Set<ClientID>();
+    // Players is a subset of `ready` that were selected to play next
+    private players = new Set<ClientID>();
     private status: ServerStatus = 'WAITING_PLAYERS';
-    private sendToClient: (connId: ConnID, message: ServerMessage) => void;
+    private sendMessage: (clientId: ClientID, message: ServerMessage) => void;
 
-    // Invariants:
-    // - players is a subset of clients' keys
-    // - players.length <= PLAYER_SLOTS
-    // - if status is PLAYING or COUNTDOWN, players.length === PLAYER_SLOTS
-
-    constructor(sendToClient: (connId: ConnID, message: ServerMessage) => void) {
-        this.sendToClient = sendToClient;
+    constructor(sendMessage: (clientId: ClientID, message: ServerMessage) => void) {
+        this.sendMessage = sendMessage;
     }
 
+    // Invariants:
+    // - ready is a subset of clients' keys
+    // - players is a subset of ready
+    // - players.size <= PLAYER_SLOTS
+    // - if status is PLAYING or COUNTDOWN, players.size === PLAYER_SLOTS
+
     private checkRep(): void {
-        assert(this.players.every(connId => this.clients.has(connId)), 'All players must be in clients map');
-        assert(this.players.length <= PLAYER_SLOTS, 'Players length must not exceed PLAYER_SLOTS');
+        for (const id of this.ready) {
+            assert(this.clients.has(id), 'All ready must be in `clients` map');
+        }
+        for (const id of this.players) {
+            assert(this.ready.has(id), 'All players must be in `ready` set');
+        }
+        assert(this.players.size <= PLAYER_SLOTS, 'Players playing length must not exceed PLAYER_SLOTS');
         if (this.status === 'PLAYING' || this.status === 'COUNTDOWN') {
-            assert(this.players.length === PLAYER_SLOTS, 'Must have exactly PLAYER_SLOTS players when playing');
+            assert(this.players.size === PLAYER_SLOTS, 'Must have exactly PLAYER_SLOTS players when playing');
         }
     }
 
     /**
      * Handle incoming client messages
      */
-    handleMessage(connId: ConnID, message: ClientMessage): void {
+    handleMessage(clientId: ClientID, message: ClientMessage): void {
         switch (message.type) {
             case 'join':
-                this.handleJoin(connId, message.name);
+                this.handleJoin(clientId, message.name);
                 break;
             case 'input':
-                this.handleInput(connId, message);
+                this.handleInput(clientId, message);
                 break;
         }
         this.checkRep();
@@ -55,9 +68,9 @@ export class ServerLogic {
     /**
      * Handle client disconnection
      */
-    handleClose(connId: ConnID): void {
-        if (this.players.includes(connId)) {
-            this.players.splice(this.players.indexOf(connId), 1);
+    handleDisconnect(clientId: ClientID): void {
+        if (this.players.has(clientId)) {
+            this.players.delete(clientId);
 
             if (this.status === 'PLAYING') {
                 this.gameOver();
@@ -65,55 +78,49 @@ export class ServerLogic {
         }
 
         console.log('Client disconnected');
-        this.clients.delete(connId);
-        this.broadcastPlayersList();
+        this.clients.delete(clientId);
+        this.broadcastClientsList();
         this.checkRep();
     }
 
-    private handleJoin(connId: ConnID, name: string): void {
-        const playerId = this.generatePlayerId();
-        const playerInfo: PlayerInfo = { id: playerId, name };
-        this.clients.set(connId, playerInfo);
+    private handleJoin(clientId: ClientID, name: string): void {
+        const client: ClientInfo = { clientId: clientId, name };
+        this.clients.set(clientId, client);
 
-        if (this.players.length < PLAYER_SLOTS) {
-            this.players.push(connId);
+        if (this.players.size < PLAYER_SLOTS) {
+            this.players.add(clientId);
         }
 
         const joinedMessage: ServerMessage = {
             type: 'joined',
-            playerId,
+            clientId,
             name
         };
-        this.sendToClient(connId, joinedMessage);
-        this.broadcastPlayersList();
+        this.sendMessage(clientId, joinedMessage);
+        this.broadcastClientsList();
     }
 
-    private handleInput(_connId: ConnID, message: ClientMessage & { type: 'input' }): void {
+    private handleInput(_connId: ClientID, message: ClientMessage & { type: 'input' }): void {
         console.log('Received input:', message.direction, 'at tick', message.tickCount);
     }
 
     private broadcastMessage(message: ServerMessage): void {
-        this.clients.forEach((_, connId) => {
-            this.sendToClient(connId, message);
+        this.clients.forEach((_, id) => {
+            this.sendMessage(id, message);
         });
     }
 
-    private broadcastPlayersList(): void {
-        const players_infos = this.players.map(connId => this.clients.get(connId)!);
-        const playersMessage: PlayersListMessage = {
-            type: 'players',
-            players: players_infos
+    private broadcastClientsList(): void {
+        const msg: ClientsListMessage = {
+            type: 'clients',
+            clients: Array.from(this.clients.values())
         };
-        this.broadcastMessage(playersMessage);
+        this.broadcastMessage(msg);
     }
 
     private gameOver(): void {
         this.status = 'RESULTS_COUNTDOWN';
         this.checkRep();
-    }
-
-    private generatePlayerId(): string {
-        return Math.random().toString(36).substring(2, 11);
     }
 
     // Getters
@@ -122,6 +129,10 @@ export class ServerLogic {
     }
 
     getPlayerCount(): number {
-        return this.players.length;
+        return this.players.size;
+    }
+    
+    getClientCount(): number {
+        return this.clients.size;
     }
 }

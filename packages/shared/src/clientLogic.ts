@@ -1,29 +1,46 @@
 /**
  * Client class for managing game state and server communication
+ * Client statuses:
+ * - CHOOSING_NAME: client opened website and has to pick a name
+ * - NOT_READY: client picked name and clicked "join", now seeing the game if it's on
+ * - READY: client pressed "ready"
+ * - WAITING: client was ready and was picked to play next, waiting for game start
+ * - COUNTDOWN: game is about to start, countdown is shown
+ * - PLAYING: client is playing the game
+ * - RESULTS_COUNTDOWN: game ended, results are shown for a few seconds
  */
 
 import { SnakeGame, Direction } from './snake';
-import { ClientMessage, ServerMessage, InputMessage, PlayerInfo } from './messages';
+import { ClientMessage, ServerMessage, InputMessage, ClientInfo } from './messages';
 
-const SNAKE_LENGTH = 4;
-const SNAKE_TICK = 0.2;
+const INITIAL_SNAKE_LENGTH = 4;
 
-export type ClientStatus = 'WATCHING' | 'WAITING' | 'COUNTDOWN' | 'PLAYING' | 'RESULTS_COUNTDOWN';
+export type ClientStatus = 'CHOOSING_NAME' | 'NOT_READY' | 'READY' | 'WAITING' | 'COUNTDOWN' | 'PLAYING' | 'RESULTS_COUNTDOWN';
 
 export class ClientLogic {
     private game: SnakeGame;
     private dtAcc: number = 0;
-    private status: ClientStatus = 'WATCHING';
-    private players: PlayerInfo[] = [];
-    private myPlayerId: string | null = null;
+    private status: ClientStatus = 'CHOOSING_NAME';
+    private clients: ClientInfo[] = [];
+    private clientId: string | null = null;
+    // message callback
     private sendMessage: (message: ClientMessage) => void;
+
+    // Invariants:
+    private checkRep(): void {
+
+    }
 
     constructor(sendMessage: (message: ClientMessage) => void) {
         this.sendMessage = sendMessage;
-        this.game = new SnakeGame(20, 20, SNAKE_LENGTH);
+        this.game = new SnakeGame(20, 20, INITIAL_SNAKE_LENGTH);
+        this.checkRep();
     }
 
-    sendJoin(): void {
+    joinServer(): void {
+        if (this.status !== 'CHOOSING_NAME') {
+            return;
+        }
         const joinMessage: ClientMessage = {
             type: 'join',
             name: 'Player-' + Math.floor(Math.random() * 1000)
@@ -37,12 +54,13 @@ export class ClientLogic {
     handleMessage(message: ServerMessage): void {
         switch (message.type) {
             case 'joined':
-                console.log('Joined as', message.playerId);
-                this.myPlayerId = message.playerId;
+                console.log('Joined as', message.clientId);
+                this.clientId = message.clientId;
+                this.status = 'NOT_READY';
                 break;
-            case 'players':
-                console.log('Players:', message.players);
-                this.players = message.players;
+            case 'clients':
+                console.log('Clients:', message.clients);
+                this.clients = message.clients;
                 break;
             case 'game_start':
                 this.game = SnakeGame.fromDTO(message.playerState);
@@ -52,30 +70,15 @@ export class ClientLogic {
                 this.game = SnakeGame.fromDTO(message.playerState);
                 break;
         }
+        this.checkRep();
     }
 
-    /**
-     * Update game state with client-side prediction (called with fixed timestep)
-     */
-    update(dt: number): void {
+    tick(): void {
         if (this.status !== 'PLAYING') {
             return;
         }
-
-        this.dtAcc += dt;
-        if (this.dtAcc >= SNAKE_TICK) {
-            try {
-                this.game.tick();
-            } catch (error) {
-                console.log('Client predicts game over');
-            }
-            this.dtAcc -= SNAKE_TICK;
-        }
     }
 
-    /**
-     * Handle direction input from player
-     */
     handleDirectionInput(direction: Direction): void {
         if (this.status !== 'PLAYING') {
             return;
@@ -89,11 +92,8 @@ export class ClientLogic {
         this.sendMessage(inputMessage);
     }
 
-    /**
-     * Reset the game state
-     */
     resetGame(): void {
-        this.game = new SnakeGame(20, 20, SNAKE_LENGTH);
+        this.game = new SnakeGame(20, 20, INITIAL_SNAKE_LENGTH);
         this.dtAcc = 0;
     }
 
@@ -106,11 +106,7 @@ export class ClientLogic {
         return this.status;
     }
 
-    getPlayers(): PlayerInfo[] {
-        return this.players;
-    }
-
-    getMyPlayerId(): string | null {
-        return this.myPlayerId;
+    getClients(): ClientInfo[] {
+        return this.clients;
     }
 }
