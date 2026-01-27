@@ -87,10 +87,6 @@ export class ServerLogic {
         const client: ClientInfo = { clientId: clientId, name };
         this.clients.set(clientId, client);
 
-        if (this.players.size < PLAYER_SLOTS) {
-            this.players.add(clientId);
-        }
-
         const joinedMessage: ServerMessage = {
             type: 'joined',
             clientId,
