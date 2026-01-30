@@ -37,13 +37,13 @@ export class ClientLogic {
         this.checkRep();
     }
 
-    joinServer(): void {
+    joinServer(name: string): void {
         if (this.status !== 'CHOOSING_NAME') {
             return;
         }
         const joinMessage: ClientMessage = {
             type: 'join',
-            name: 'Player-' + Math.floor(Math.random() * 1000)
+            name: name
         };
         this.sendMessage(joinMessage);
     }
