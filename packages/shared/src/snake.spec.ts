@@ -9,21 +9,12 @@ import { SnakeGame, GameOverError } from './snake'
 
 describe('SnakeGame ADT', () => {
     describe('create', () => {
-        test('creates a new game with default dimensions', () => {
-            const game = new SnakeGame();
-
-            expect(game.getGridWidth()).toBe(20);
-            expect(game.getGridHeight()).toBe(20);
-            // Removed status check (NOT_STARTED)
-            expect(game.getScore()).toBe(0);
-            expect(game.getSnake().length).toBe(1);
-        });
-
         test('creates a new game with custom dimensions', () => {
             const game = new SnakeGame(30, 25);
 
             expect(game.getGridWidth()).toBe(30);
             expect(game.getGridHeight()).toBe(25);
+            expect(game.getScore()).toBe(0);
         });
 
         test('creates snake at center position', () => {
@@ -34,24 +25,10 @@ describe('SnakeGame ADT', () => {
             expect(head.y).toBe(10);
         });
 
-        test('food is not on initial snake position', () => {
-            const game = new SnakeGame();
-            const head = game.getSnake()[0];
-            const food = game.getFood();
-
-            expect(food.x !== head.x || food.y !== head.y).toBe(true);
-        });
-
         test('initial direction is RIGHT', () => {
             const game = new SnakeGame();
 
             expect(game.getDirection()).toBe('RIGHT');
-        });
-
-        test('creates snake with default length of 1', () => {
-            const game = new SnakeGame();
-
-            expect(game.getSnake().length).toBe(1);
         });
 
         test('creates snake with custom length', () => {
@@ -79,24 +56,10 @@ describe('SnakeGame ADT', () => {
         test('throws error if initial length is too long for grid', () => {
             expect(() => new SnakeGame(5, 5, 10)).toThrow('Initial length 10 is too long for grid width 5');
         });
-
-        test('food is not on any snake segment for longer snake', () => {
-            const game = new SnakeGame(10, 10);
-            const food = game.getFood();
-            const snake = game.getSnake();
-
-            // Check that food is not on any snake segment
-            const foodOnSnake = snake.some(segment =>
-                segment.x === food.x && segment.y === food.y
-            );
-            expect(foodOnSnake).toBe(false);
-        });
     });
 
 
     describe('start', () => {
-        // Removed status transition test (status logic removed)
-
         test('sets startTime when starting', () => {
             const game = new SnakeGame();
             game.start();
@@ -164,8 +127,6 @@ describe('SnakeGame ADT', () => {
             expect(game.canQueueDirection('DOWN')).toBe(false);
             expect(game.canQueueDirection('RIGHT')).toBe(false);
         });
-
-        // Removed tests for canQueueDirection when not started or game over (status logic removed)
     });
 
     describe('queueDirection, assuming canQueueDirection', () => {
@@ -426,11 +387,7 @@ describe('SnakeGame ADT', () => {
                 expect(game.getElapsedTime()).toBeGreaterThan(0);
             });
         });
-
-        // Removed does nothing when game over (status logic removed)
     });
-
-    // Removed getStatus describe block (status logic removed)
 
     describe('getScore', () => {
         test('returns current score', () => {

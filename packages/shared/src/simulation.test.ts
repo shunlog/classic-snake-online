@@ -24,6 +24,9 @@ describe('Clients join Server', () => {
 
         client2.joinServer();
         expect(server.getClientCount()).toBe(2);
+
+        expect(client1.getStatus()).toBe('NOT_READY');
+        expect(client1.getStatus()).toBe('NOT_READY');
     });
 
 });
