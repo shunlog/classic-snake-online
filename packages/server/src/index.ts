@@ -43,6 +43,7 @@ const ClientMessageSchema = z.discriminatedUnion('type', [
 // Game tick loop
 let tickInterval: NodeJS.Timeout | null = null;
 let countdownInterval: NodeJS.Timeout | null = null;
+let resultsTimeout: NodeJS.Timeout | null = null;
 
 function startGameLoop() {
     if (tickInterval) return;
@@ -50,6 +51,15 @@ function startGameLoop() {
     tickInterval = setInterval(() => {
         if (server.getStatus() === 'PLAYING') {
             server.tick();
+        }
+        // Check if game ended and schedule reset
+        if (server.getStatus() === 'RESULTS_COUNTDOWN' && !resultsTimeout) {
+            stopGameLoop();
+            resultsTimeout = setTimeout(() => {
+                server.resetToWaiting();
+                resultsTimeout = null;
+                console.log('Reset to waiting state');
+            }, 3000);
         }
     }, TICK_RATE);
     console.log('Game loop started');

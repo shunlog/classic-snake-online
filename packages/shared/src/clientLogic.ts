@@ -73,6 +73,10 @@ export class ClientLogic {
                 if (me && me.ready && this.status === 'NOT_READY') {
                     this.status = 'READY';
                 }
+                // If we were in RESULTS_COUNTDOWN and server shows us as not ready, go back to NOT_READY
+                if (me && !me.ready && this.status === 'RESULTS_COUNTDOWN') {
+                    this.status = 'NOT_READY';
+                }
                 break;
             case 'countdown':
                 this.countdown = message.secondsRemaining;

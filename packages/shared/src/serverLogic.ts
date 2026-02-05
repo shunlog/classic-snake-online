@@ -355,6 +355,9 @@ export class ServerLogic {
             winner: winner
         });
         
+        // Broadcast updated clients list so clients see ready=false
+        this.broadcastClientsList();
+        
         this.checkRep();
     }
 
