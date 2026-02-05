@@ -10,30 +10,35 @@
  * - RESULTS_COUNTDOWN: game ended, results are shown for a few seconds
  */
 
-import { SnakeGame, Direction } from './snake';
-import { ClientMessage, ServerMessage, InputMessage, ClientInfo } from './messages';
+import { SnakeGame, SnakeGameDTO, Direction } from './snake';
+import { ClientMessage, ServerMessage, ClientInfo } from './messages';
+import { MultiplayerClient, InputPacket, StatePacket } from './multiplayer';
 
 const INITIAL_SNAKE_LENGTH = 4;
 
 export type ClientStatus = 'CHOOSING_NAME' | 'NOT_READY' | 'READY' | 'WAITING' | 'COUNTDOWN' | 'PLAYING' | 'RESULTS_COUNTDOWN';
 
+/** Input type for snake game */
+export type SnakeInput = Direction;
+
 export class ClientLogic {
-    private game: SnakeGame;
-    private dtAcc: number = 0;
     private status: ClientStatus = 'CHOOSING_NAME';
     private clients: ClientInfo[] = [];
     private clientId: string | null = null;
-    // message callback
     private sendMessage: (message: ClientMessage) => void;
 
-    // Invariants:
-    private checkRep(): void {
+    // Multiplayer game state (only active during PLAYING)
+    private multiplayer: MultiplayerClient<SnakeGameDTO, SnakeInput> | null = null;
 
+    private checkRep(): void {
+        // If playing, multiplayer must exist
+        if (this.status === 'PLAYING' && this.multiplayer === null) {
+            throw new Error('Invariant violation: multiplayer must exist when PLAYING');
+        }
     }
 
     constructor(sendMessage: (message: ClientMessage) => void) {
         this.sendMessage = sendMessage;
-        this.game = new SnakeGame(20, 20, INITIAL_SNAKE_LENGTH);
         this.checkRep();
     }
 
@@ -63,43 +68,110 @@ export class ClientLogic {
                 this.clients = message.clients;
                 break;
             case 'game_start':
-                this.game = SnakeGame.fromDTO(message.playerState);
-                this.status = 'PLAYING';
+                this.startGame(message.playerState);
                 break;
             case 'tick':
-                this.game = SnakeGame.fromDTO(message.playerState);
+                if (this.multiplayer) {
+                    this.multiplayer.onServerState({
+                        tick: message.tickCount,
+                        lastProcessedInputId: message.tickCount, // Server uses tick as input ID
+                        state: message.playerState
+                    });
+                }
                 break;
         }
         this.checkRep();
     }
 
+    /**
+     * Handle a state packet from multiplayer server
+     */
+    handleStatePacket(packet: StatePacket<SnakeGameDTO>): void {
+        if (this.multiplayer) {
+            this.multiplayer.onServerState(packet);
+        }
+        this.checkRep();
+    }
+
+    private startGame(initialState: SnakeGameDTO): void {
+        this.multiplayer = new MultiplayerClient<SnakeGameDTO, SnakeInput>(
+            initialState,
+            (packet) => this.sendInputPacket(packet),
+            (state, input) => this.applyInput(state, input),
+            (state) => this.simulate(state),
+            (state) => this.cloneState(state)
+        );
+        this.status = 'PLAYING';
+    }
+
+    private sendInputPacket(packet: InputPacket<SnakeInput>): void {
+        this.sendMessage({
+            type: 'input',
+            direction: packet.payload,
+            tickCount: packet.tick
+        });
+    }
+
+    private applyInput(state: SnakeGameDTO, input: SnakeInput): void {
+        // Apply direction to queued direction
+        const game = SnakeGame.fromDTO(state);
+        if (game.canQueueDirection(input)) {
+            game.queueDirection(input);
+        }
+        Object.assign(state, game.toDTO());
+    }
+
+    private simulate(state: SnakeGameDTO): void {
+        const game = SnakeGame.fromDTO(state);
+        game.tick();
+        Object.assign(state, game.toDTO());
+    }
+
+    private cloneState(state: SnakeGameDTO): SnakeGameDTO {
+        return {
+            snake: state.snake.map(p => ({ x: p.x, y: p.y })),
+            food: { x: state.food.x, y: state.food.y },
+            direction: state.direction,
+            queuedDir1: state.queuedDir1,
+            queuedDir2: state.queuedDir2,
+            score: state.score,
+            gridWidth: state.gridWidth,
+            gridHeight: state.gridHeight,
+            startTime: state.startTime,
+            elapsedTime: state.elapsedTime,
+            tickCount: state.tickCount
+        };
+    }
+
     tick(): void {
-        if (this.status !== 'PLAYING') {
+        if (this.status !== 'PLAYING' || !this.multiplayer) {
             return;
         }
+        this.multiplayer.tick();
     }
 
     handleDirectionInput(direction: Direction): void {
-        if (this.status !== 'PLAYING') {
+        if (this.status !== 'PLAYING' || !this.multiplayer) {
             return;
         }
-
-        const inputMessage: InputMessage = {
-            type: 'input',
-            direction: direction,
-            tickCount: this.game.getTickCount()
-        };
-        this.sendMessage(inputMessage);
+        this.multiplayer.input(direction);
     }
 
     resetGame(): void {
-        this.game = new SnakeGame(20, 20, INITIAL_SNAKE_LENGTH);
-        this.dtAcc = 0;
+        this.multiplayer = null;
+        this.status = 'NOT_READY';
     }
 
     // Getters
     getGame(): SnakeGame {
-        return this.game;
+        if (this.multiplayer) {
+            return SnakeGame.fromDTO(this.multiplayer.getState());
+        }
+        return new SnakeGame(20, 20, INITIAL_SNAKE_LENGTH);
+    }
+
+    getGameState(): SnakeGameDTO | null {
+        return this.multiplayer?.getState() ?? null;
     }
 
     getStatus(): ClientStatus {
@@ -108,5 +180,9 @@ export class ClientLogic {
 
     getClients(): ClientInfo[] {
         return this.clients;
+    }
+
+    getPendingInputCount(): number {
+        return this.multiplayer?.getPendingInputCount() ?? 0;
     }
 }
