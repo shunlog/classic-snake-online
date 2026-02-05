@@ -5,7 +5,7 @@ Server ADT
 - has a tick() method
 */
 
-import { SnakeGame, SnakeGameDTO, Direction } from './snake';
+import { SnakeGame, SnakeGameDTO, Direction, GameOverError } from './snake';
 import { ClientMessage, ServerMessage, ClientInfo, ClientsListMessage } from './messages';
 import { MultiplayerServer, StatePacket } from './multiplayer';
 import assert from 'assert';
@@ -309,8 +309,19 @@ export class ServerLogic {
         if (this.status !== 'PLAYING') {
             return;
         }
-        for (const playerGame of this.playerGames.values()) {
-            playerGame.tick();
+        for (const [clientId, playerGame] of this.playerGames) {
+            try {
+                playerGame.tick();
+            } catch (e) {
+                if (e instanceof GameOverError) {
+                    // This player lost, find the other player as winner
+                    const otherPlayers = Array.from(this.players).filter(id => id !== clientId);
+                    const winner = otherPlayers[0] ?? null;
+                    this.gameOver(winner);
+                    return;
+                }
+                throw e;
+            }
         }
     }
 
