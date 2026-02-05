@@ -18,14 +18,16 @@ const INITIAL_SNAKE_LENGTH = 4;
 
 export type ClientStatus = 'CHOOSING_NAME' | 'NOT_READY' | 'READY' | 'WAITING' | 'COUNTDOWN' | 'PLAYING' | 'RESULTS_COUNTDOWN';
 
-/** Input type for snake game */
-export type SnakeInput = Direction;
+/** Input type for snake game (re-exported from serverLogic) */
+type SnakeInput = Direction;
 
 export class ClientLogic {
     private status: ClientStatus = 'CHOOSING_NAME';
     private clients: ClientInfo[] = [];
-    private clientId: string | null = null;
+    private _clientId: string | null = null;
     private sendMessage: (message: ClientMessage) => void;
+    private countdown: number = 0;
+    private winner: string | null = null;
 
     // Multiplayer game state (only active during PLAYING)
     private multiplayer: MultiplayerClient<SnakeGameDTO, SnakeInput> | null = null;
@@ -60,12 +62,21 @@ export class ClientLogic {
         switch (message.type) {
             case 'joined':
                 console.log('Joined as', message.clientId);
-                this.clientId = message.clientId;
+                this._clientId = message.clientId;
                 this.status = 'NOT_READY';
                 break;
             case 'clients':
                 console.log('Clients:', message.clients);
                 this.clients = message.clients;
+                // Update status based on our ready state
+                const me = this.clients.find(c => c.clientId === this._clientId);
+                if (me && me.ready && this.status === 'NOT_READY') {
+                    this.status = 'READY';
+                }
+                break;
+            case 'countdown':
+                this.countdown = message.secondsRemaining;
+                this.status = 'COUNTDOWN';
                 break;
             case 'game_start':
                 this.startGame(message.playerState);
@@ -78,6 +89,11 @@ export class ClientLogic {
                         state: message.playerState
                     });
                 }
+                break;
+            case 'game_over':
+                this.winner = message.winner;
+                this.status = 'RESULTS_COUNTDOWN';
+                this.multiplayer = null;
                 break;
         }
         this.checkRep();
@@ -184,5 +200,17 @@ export class ClientLogic {
 
     getPendingInputCount(): number {
         return this.multiplayer?.getPendingInputCount() ?? 0;
+    }
+
+    getCountdown(): number {
+        return this.countdown;
+    }
+
+    getWinner(): string | null {
+        return this.winner;
+    }
+
+    getClientId(): string | null {
+        return this._clientId;
     }
 }

@@ -23,6 +23,19 @@ describe('Clients and Server', () => {
         });
     });
 
+    /** Helper to start game: join, ready, and run countdown */
+    function startGameWithPlayers() {
+        client1.joinServer('Alice');
+        client2.joinServer('Bob');
+        // Both players ready
+        server.handleMessage('player-1', { type: 'ready' });
+        server.handleMessage('player-2', { type: 'ready' });
+        // Run countdown to completion
+        server.countdownTick(); // 3 -> 2
+        server.countdownTick(); // 2 -> 1
+        server.countdownTick(); // 1 -> 0, starts game
+    }
+
     it('client joins', () => {
         client1.joinServer('Alice');
         expect(server.getClientCount()).toBe(1);
@@ -35,10 +48,7 @@ describe('Clients and Server', () => {
     });
 
     it('server starts game and clients transition to PLAYING', () => {
-        client1.joinServer('Alice');
-        client2.joinServer('Bob');
-
-        server.startGame('player-1', 'player-2');
+        startGameWithPlayers();
 
         expect(server.getStatus()).toBe('PLAYING');
         expect(client1.getStatus()).toBe('PLAYING');
@@ -46,10 +56,7 @@ describe('Clients and Server', () => {
     });
 
     it('clients receive initial game state on game start', () => {
-        client1.joinServer('Alice');
-        client2.joinServer('Bob');
-
-        server.startGame('player-1', 'player-2');
+        startGameWithPlayers();
 
         const state1 = client1.getGameState();
         const state2 = client2.getGameState();
@@ -61,9 +68,7 @@ describe('Clients and Server', () => {
     });
 
     it('server tick advances game state and syncs clients', () => {
-        client1.joinServer('Alice');
-        client2.joinServer('Bob');
-        server.startGame('player-1', 'player-2');
+        startGameWithPlayers();
 
         const initialTick = client1.getGameState()!.tickCount;
 
@@ -74,9 +79,7 @@ describe('Clients and Server', () => {
     });
 
     it('client input is applied with prediction', () => {
-        client1.joinServer('Alice');
-        client2.joinServer('Bob');
-        server.startGame('player-1', 'player-2');
+        startGameWithPlayers();
 
         const initialState = client1.getGameState()!;
         const initialDir = initialState.direction;
@@ -93,9 +96,7 @@ describe('Clients and Server', () => {
     });
 
     it('server processes input and acknowledges to client', () => {
-        client1.joinServer('Alice');
-        client2.joinServer('Bob');
-        server.startGame('player-1', 'player-2');
+        startGameWithPlayers();
 
         client1.handleDirectionInput('UP');
         expect(client1.getPendingInputCount()).toBe(1);
@@ -108,9 +109,7 @@ describe('Clients and Server', () => {
     });
 
     it('multiple inputs are processed correctly', () => {
-        client1.joinServer('Alice');
-        client2.joinServer('Bob');
-        server.startGame('player-1', 'player-2');
+        startGameWithPlayers();
 
         // Send UP, then LEFT (both valid from initial RIGHT direction)
         client1.handleDirectionInput('UP');
@@ -124,9 +123,7 @@ describe('Clients and Server', () => {
     });
 
     it('game state evolves over multiple ticks', () => {
-        client1.joinServer('Alice');
-        client2.joinServer('Bob');
-        server.startGame('player-1', 'player-2');
+        startGameWithPlayers();
 
         const initialSnakeHead = client1.getGameState()!.snake[0];
 
@@ -142,9 +139,7 @@ describe('Clients and Server', () => {
     });
 
     it('both players can input simultaneously', () => {
-        client1.joinServer('Alice');
-        client2.joinServer('Bob');
-        server.startGame('player-1', 'player-2');
+        startGameWithPlayers();
 
         client1.handleDirectionInput('UP');
         client2.handleDirectionInput('DOWN');

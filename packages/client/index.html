@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Snake Online</title>
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <div id="app">
+      <!-- Join Screen -->
+      <div id="join-screen" class="screen">
+        <h1>🐍 Snake Online</h1>
+        <div class="join-form">
+          <input type="text" id="name-input" placeholder="Enter your name" maxlength="20" />
+          <button id="join-btn">Join Game</button>
+        </div>
+        <p id="connection-status">Connecting...</p>
+      </div>
+
+      <!-- Lobby Screen -->
+      <div id="lobby-screen" class="screen hidden">
+        <h1>🐍 Snake Online</h1>
+        <div class="lobby-info">
+          <h2>Players Online</h2>
+          <ul id="players-list"></ul>
+        </div>
+        <button id="ready-btn">Ready</button>
+        <p id="lobby-status">Waiting for players...</p>
+      </div>
+
+      <!-- Game Screen -->
+      <div id="game-screen" class="screen hidden">
+        <div class="game-header">
+          <span id="score">Score: 0</span>
+          <span id="tick">Tick: 0</span>
+        </div>
+        <canvas id="game-canvas" width="400" height="400"></canvas>
+        <p class="controls-hint">Use Arrow Keys or WASD to move</p>
+      </div>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

@@ -10,7 +10,16 @@ import { SnakeGameDTO, Direction } from "./snake";
  */
 export type ClientMessage =
   | JoinMessage
+  | ReadyMessage
   | InputMessage;
+
+/**
+ * Client sends ready status
+ */
+export interface ReadyMessage {
+  type: 'ready';
+}
+
 /**
  * Client sends a direction input at a specific local tick
  */
@@ -26,8 +35,10 @@ export interface InputMessage {
 export type ServerMessage =
   | JoinedMessage
   | ClientsListMessage
+  | CountdownMessage
   | GameStartMessage
-  | TickMessage;
+  | TickMessage
+  | GameOverMessage;
 
 /**
  * Client requests to join the lobby
@@ -53,6 +64,7 @@ export interface JoinedMessage {
 export interface ClientInfo {
   clientId: string;
   name: string;
+  ready: boolean;
 }
 
 /**
@@ -61,6 +73,14 @@ export interface ClientInfo {
 export interface ClientsListMessage {
   type: 'clients';
   clients: ClientInfo[];
+}
+
+/**
+ * Server sends countdown before game starts
+ */
+export interface CountdownMessage {
+  type: 'countdown';
+  secondsRemaining: number;
 }
 
 export interface GameStartMessage {
@@ -78,4 +98,12 @@ export interface TickMessage {
   tickCount: number;
   playerState: SnakeGameDTO;
   opponentState: SnakeGameDTO;
+}
+
+/**
+ * Server notifies game ended
+ */
+export interface GameOverMessage {
+  type: 'game_over';
+  winner: string | null; // clientId of winner, null if draw
 }

@@ -7,7 +7,7 @@ Server ADT
 
 import { SnakeGame, SnakeGameDTO, Direction } from './snake';
 import { ClientMessage, ServerMessage, ClientInfo, ClientsListMessage } from './messages';
-import { MultiplayerServer, InputPacket, StatePacket } from './multiplayer';
+import { MultiplayerServer, StatePacket } from './multiplayer';
 import assert from 'assert';
 
 export type ServerStatus = 'WAITING_PLAYERS' | 'COUNTDOWN' | 'PLAYING' | 'RESULTS_COUNTDOWN';
@@ -17,6 +17,7 @@ const PLAYER_SLOTS = 2;
 const INITIAL_SNAKE_LENGTH = 4;
 const GRID_WIDTH = 20;
 const GRID_HEIGHT = 20;
+const COUNTDOWN_SECONDS = 3;
 
 /** Input type for snake game */
 export type SnakeInput = Direction;
@@ -28,12 +29,15 @@ export function generateClientID(): ClientID {
 export class ServerLogic {
     // Clients are added as soon as they connect to the WebSocket server
     private clients = new Map<ClientID, ClientInfo>();
-    // Players is a subset of `clients` who pressed "ready"
+    // Ready is a subset of `clients` who pressed "ready"
     private ready = new Set<ClientID>();
     // Players is a subset of `ready` that were selected to play next
     private players = new Set<ClientID>();
     private status: ServerStatus = 'WAITING_PLAYERS';
     private sendMessage: (clientId: ClientID, message: ServerMessage) => void;
+    
+    // Countdown state
+    private countdownRemaining: number = 0;
 
     // Multiplayer game instances for each player (only during PLAYING)
     private playerGames = new Map<ClientID, MultiplayerServer<SnakeGameDTO, SnakeInput>>();
@@ -69,6 +73,9 @@ export class ServerLogic {
             case 'join':
                 this.handleJoin(clientId, message.name);
                 break;
+            case 'ready':
+                this.handleReady(clientId);
+                break;
             case 'input':
                 this.handleInput(clientId, message);
                 break;
@@ -77,37 +84,33 @@ export class ServerLogic {
     }
 
     /**
-     * Handle an input packet directly (for multiplayer integration)
-     */
-    handleInputPacket(clientId: ClientID, packet: InputPacket<SnakeInput>): void {
-        const playerGame = this.playerGames.get(clientId);
-        if (playerGame) {
-            playerGame.onClientInput(packet);
-        }
-        this.checkRep();
-    }
-
-    /**
      * Handle client disconnection
      */
     handleDisconnect(clientId: ClientID): void {
-        if (this.players.has(clientId)) {
-            this.players.delete(clientId);
+        const wasPlaying = this.players.has(clientId);
+        const wasInCountdown = this.status === 'COUNTDOWN' && this.players.has(clientId);
+        
+        // Clean up all sets before removing from clients
+        this.players.delete(clientId);
+        this.ready.delete(clientId);
+        this.playerGames.delete(clientId);
+        this.clients.delete(clientId);
 
-            if (this.status === 'PLAYING') {
-                this.gameOver();
-            }
+        if (wasPlaying && this.status === 'PLAYING') {
+            // Find the remaining player as winner
+            const remainingPlayer = Array.from(this.players)[0] ?? null;
+            this.gameOver(remainingPlayer);
+        } else if (wasInCountdown) {
+            this.cancelCountdown();
         }
 
         console.log('Client disconnected');
-        this.clients.delete(clientId);
-        this.playerGames.delete(clientId);
         this.broadcastClientsList();
         this.checkRep();
     }
 
     private handleJoin(clientId: ClientID, name: string): void {
-        const client: ClientInfo = { clientId: clientId, name };
+        const client: ClientInfo = { clientId: clientId, name, ready: false };
         this.clients.set(clientId, client);
 
         const joinedMessage: ServerMessage = {
@@ -119,27 +122,96 @@ export class ServerLogic {
         this.broadcastClientsList();
     }
 
+    private handleReady(clientId: ClientID): void {
+        if (this.status !== 'WAITING_PLAYERS') {
+            return;
+        }
+        
+        if (!this.clients.has(clientId)) {
+            return;
+        }
+
+        this.ready.add(clientId);
+        
+        // Update client info
+        const client = this.clients.get(clientId)!;
+        this.clients.set(clientId, { ...client, ready: true });
+        
+        this.broadcastClientsList();
+        this.tryStartCountdown();
+    }
+
     private handleInput(clientId: ClientID, message: ClientMessage & { type: 'input' }): void {
         const playerGame = this.playerGames.get(clientId);
         if (playerGame) {
             playerGame.onClientInput({
                 tick: message.tickCount,
-                inputId: message.tickCount, // Use tickCount as inputId for simplicity
+                inputId: message.tickCount,
                 payload: message.direction
             });
         }
     }
 
     /**
-     * Start a game between two players
+     * Try to start countdown if enough players are ready
      */
-    startGame(player1Id: ClientID, player2Id: ClientID): void {
+    private tryStartCountdown(): void {
+        if (this.status !== 'WAITING_PLAYERS') {
+            return;
+        }
+        
+        if (this.ready.size >= PLAYER_SLOTS) {
+            const readyPlayers = Array.from(this.ready).slice(0, PLAYER_SLOTS);
+            this.players = new Set(readyPlayers);
+            this.status = 'COUNTDOWN';
+            this.countdownRemaining = COUNTDOWN_SECONDS;
+            this.broadcastCountdown();
+        }
+    }
+
+    private cancelCountdown(): void {
+        this.status = 'WAITING_PLAYERS';
         this.players.clear();
-        this.players.add(player1Id);
-        this.players.add(player2Id);
-        this.ready.add(player1Id);
-        this.ready.add(player2Id);
+        this.countdownRemaining = 0;
+    }
+
+    private broadcastCountdown(): void {
+        this.broadcastMessage({
+            type: 'countdown',
+            secondsRemaining: this.countdownRemaining
+        });
+    }
+
+    /**
+     * Called every second during countdown
+     */
+    countdownTick(): void {
+        if (this.status !== 'COUNTDOWN') {
+            return;
+        }
+        
+        this.countdownRemaining--;
+        
+        if (this.countdownRemaining <= 0) {
+            this.startGame();
+        } else {
+            this.broadcastCountdown();
+        }
+        this.checkRep();
+    }
+
+    /**
+     * Start the game (called after countdown)
+     */
+    private startGame(): void {
+        if (this.players.size !== PLAYER_SLOTS) {
+            return;
+        }
+
         this.status = 'PLAYING';
+        const playerIds = Array.from(this.players);
+        const player1Id = playerIds[0];
+        const player2Id = playerIds[1];
 
         // Create initial states for each player
         const game1 = new SnakeGame(GRID_WIDTH, GRID_HEIGHT, INITIAL_SNAKE_LENGTH);
@@ -256,9 +328,31 @@ export class ServerLogic {
         this.broadcastMessage(msg);
     }
 
-    private gameOver(): void {
+    private gameOver(winner: ClientID | null): void {
         this.status = 'RESULTS_COUNTDOWN';
         this.playerGames.clear();
+        
+        // Reset ready status for next game
+        for (const [id, client] of this.clients) {
+            this.clients.set(id, { ...client, ready: false });
+        }
+        this.ready.clear();
+        this.players.clear();
+        
+        this.broadcastMessage({
+            type: 'game_over',
+            winner: winner
+        });
+        
+        this.checkRep();
+    }
+
+    /**
+     * Reset to waiting state (called after results countdown)
+     */
+    resetToWaiting(): void {
+        this.status = 'WAITING_PLAYERS';
+        this.broadcastClientsList();
         this.checkRep();
     }
 
@@ -277,5 +371,9 @@ export class ServerLogic {
 
     getPlayerState(clientId: ClientID): SnakeGameDTO | null {
         return this.playerGames.get(clientId)?.getState() ?? null;
+    }
+
+    getCountdownRemaining(): number {
+        return this.countdownRemaining;
     }
 }
