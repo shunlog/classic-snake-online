@@ -35,7 +35,12 @@
           <span id="score">Score: 0</span>
           <span id="tick">Tick: 0</span>
         </div>
-        <canvas id="game-canvas" width="400" height="400"></canvas>
+        <div class="game-container">
+          <canvas id="game-canvas" width="400" height="400"></canvas>
+          <div id="game-overlay" class="game-overlay hidden">
+            <div id="overlay-text"></div>
+          </div>
+        </div>
         <p class="controls-hint">Use Arrow Keys or WASD to move</p>
       </div>
     </div>

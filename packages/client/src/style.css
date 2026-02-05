@@ -150,6 +150,59 @@ button:disabled {
     background: #0a0a15;
 }
 
+.game-container {
+    position: relative;
+    width: 400px;
+    height: 400px;
+}
+
+.game-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background: rgba(0, 0, 0, 0.7);
+    border-radius: 8px;
+    z-index: 10;
+}
+
+.game-overlay.hidden {
+    display: none;
+}
+
+#overlay-text {
+    font-size: 3rem;
+    font-weight: bold;
+    text-align: center;
+    text-shadow: 2px 2px 8px rgba(0, 0, 0, 0.8);
+}
+
+#overlay-text.countdown {
+    font-size: 6rem;
+    color: #4ecca3;
+    animation: pulse 1s ease-in-out;
+}
+
+#overlay-text.winner {
+    color: #4ecca3;
+    font-size: 2.5rem;
+}
+
+#overlay-text.loser {
+    color: #e74c3c;
+    font-size: 2.5rem;
+}
+
+@keyframes pulse {
+    0% { transform: scale(0.5); opacity: 0; }
+    50% { transform: scale(1.2); }
+    100% { transform: scale(1); opacity: 1; }
+}
+
 .controls-hint {
     margin-top: 15px;
     color: rgba(255, 255, 255, 0.5);

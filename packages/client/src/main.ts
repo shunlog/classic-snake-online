@@ -19,6 +19,8 @@ const scoreEl = document.getElementById('score')!;
 const tickEl = document.getElementById('tick')!;
 const canvas = document.getElementById('game-canvas') as HTMLCanvasElement;
 const ctx = canvas.getContext('2d')!;
+const gameOverlay = document.getElementById('game-overlay')!;
+const overlayText = document.getElementById('overlay-text')!;
 
 let ws: WebSocket | null = null;
 let clientLogic: ClientLogic | null = null;
@@ -79,10 +81,16 @@ function updateUI() {
     if (status === 'COUNTDOWN') {
         const countdown = clientLogic.getCountdown();
         lobbyStatus.textContent = `Game starting in ${countdown}...`;
+        // Show countdown overlay on game screen
+        gameOverlay.classList.remove('hidden');
+        overlayText.textContent = countdown.toString();
+        overlayText.className = 'countdown';
     }
 
     // Update game
     if (status === 'PLAYING') {
+        // Hide overlay when playing
+        gameOverlay.classList.add('hidden');
         const state = clientLogic.getGameState();
         if (state) {
             scoreEl.textContent = `Score: ${state.score}`;
@@ -95,17 +103,27 @@ function updateUI() {
     if (status === 'RESULTS_COUNTDOWN') {
         const winner = clientLogic.getWinner();
         const myId = clientLogic.getClientId();
+        
+        // Show game over overlay
+        gameOverlay.classList.remove('hidden');
         if (winner === myId) {
+            overlayText.textContent = '🎉 You Won! 🎉';
+            overlayText.className = 'winner';
             lobbyStatus.textContent = 'You won! 🎉';
         } else if (winner === null) {
+            overlayText.textContent = 'Game Over!';
+            overlayText.className = 'loser';
             lobbyStatus.textContent = 'Game Over!';
         } else {
+            overlayText.textContent = '😢 You Lost! 😢';
+            overlayText.className = 'loser';
             lobbyStatus.textContent = 'You lost! 😢';
         }
         stopGameLoop();
         // Reset after showing results
         setTimeout(() => {
             readyBtn.disabled = false;
+            gameOverlay.classList.add('hidden');
             showScreen('lobby');
         }, 3000);
     }
