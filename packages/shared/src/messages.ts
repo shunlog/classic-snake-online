@@ -106,4 +106,5 @@ export interface TickMessage {
 export interface GameOverMessage {
   type: 'game_over';
   winner: string | null; // clientId of winner, null if draw
+  countdownSeconds: number; // seconds remaining until next game
 }

@@ -103,29 +103,24 @@ function updateUI() {
     if (status === 'RESULTS_COUNTDOWN') {
         const winner = clientLogic.getWinner();
         const myId = clientLogic.getClientId();
+        const resultsCountdown = clientLogic.getResultsCountdown();
         
         // Show game over overlay
         gameOverlay.classList.remove('hidden');
         if (winner === myId) {
-            overlayText.textContent = '🎉 You Won! 🎉';
+            overlayText.innerHTML = `🎉 You Won! 🎉<br><span class="countdown-small">Next game in ${resultsCountdown}s</span>`;
             overlayText.className = 'winner';
             lobbyStatus.textContent = 'You won! 🎉';
         } else if (winner === null) {
-            overlayText.textContent = 'Game Over!';
+            overlayText.innerHTML = `Game Over!<br><span class="countdown-small">Next game in ${resultsCountdown}s</span>`;
             overlayText.className = 'loser';
             lobbyStatus.textContent = 'Game Over!';
         } else {
-            overlayText.textContent = '😢 You Lost! 😢';
+            overlayText.innerHTML = `😢 You Lost! 😢<br><span class="countdown-small">Next game in ${resultsCountdown}s</span>`;
             overlayText.className = 'loser';
             lobbyStatus.textContent = 'You lost! 😢';
         }
         stopGameLoop();
-        // Reset after showing results
-        setTimeout(() => {
-            readyBtn.disabled = false;
-            gameOverlay.classList.add('hidden');
-            showScreen('lobby');
-        }, 3000);
     }
 }
 

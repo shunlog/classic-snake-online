@@ -18,6 +18,7 @@ const INITIAL_SNAKE_LENGTH = 4;
 const GRID_WIDTH = 20;
 const GRID_HEIGHT = 20;
 const COUNTDOWN_SECONDS = 3;
+const RESULTS_COUNTDOWN_SECONDS = 5;
 
 /** Input type for snake game */
 export type SnakeInput = Direction;
@@ -38,6 +39,7 @@ export class ServerLogic {
     
     // Countdown state
     private countdownRemaining: number = 0;
+    private resultsCountdownRemaining: number = 0;
 
     // Multiplayer game instances for each player (only during PLAYING)
     private playerGames = new Map<ClientID, MultiplayerServer<SnakeGameDTO, SnakeInput>>();
@@ -342,6 +344,7 @@ export class ServerLogic {
     private gameOver(winner: ClientID | null): void {
         this.status = 'RESULTS_COUNTDOWN';
         this.playerGames.clear();
+        this.resultsCountdownRemaining = RESULTS_COUNTDOWN_SECONDS;
         
         // Reset ready status for next game
         for (const [id, client] of this.clients) {
@@ -352,12 +355,35 @@ export class ServerLogic {
         
         this.broadcastMessage({
             type: 'game_over',
-            winner: winner
+            winner: winner,
+            countdownSeconds: this.resultsCountdownRemaining
         });
         
         // Broadcast updated clients list so clients see ready=false
         this.broadcastClientsList();
         
+        this.checkRep();
+    }
+
+    /**
+     * Called every second during results countdown
+     */
+    resultsCountdownTick(): void {
+        if (this.status !== 'RESULTS_COUNTDOWN') {
+            return;
+        }
+        
+        this.resultsCountdownRemaining--;
+        
+        if (this.resultsCountdownRemaining <= 0) {
+            this.resetToWaiting();
+        } else {
+            this.broadcastMessage({
+                type: 'game_over',
+                winner: null,
+                countdownSeconds: this.resultsCountdownRemaining
+            });
+        }
         this.checkRep();
     }
 
@@ -389,5 +415,9 @@ export class ServerLogic {
 
     getCountdownRemaining(): number {
         return this.countdownRemaining;
+    }
+
+    getResultsCountdownRemaining(): number {
+        return this.resultsCountdownRemaining;
     }
 }

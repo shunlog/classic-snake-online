@@ -27,6 +27,7 @@ export class ClientLogic {
     private _clientId: string | null = null;
     private sendMessage: (message: ClientMessage) => void;
     private countdown: number = 0;
+    private resultsCountdown: number = 0;
     private winner: string | null = null;
 
     // Multiplayer game state (only active during PLAYING)
@@ -95,7 +96,10 @@ export class ClientLogic {
                 }
                 break;
             case 'game_over':
-                this.winner = message.winner;
+                if (message.winner !== null) {
+                    this.winner = message.winner;
+                }
+                this.resultsCountdown = message.countdownSeconds;
                 this.status = 'RESULTS_COUNTDOWN';
                 this.multiplayer = null;
                 break;
@@ -212,6 +216,10 @@ export class ClientLogic {
 
     getWinner(): string | null {
         return this.winner;
+    }
+
+    getResultsCountdown(): number {
+        return this.resultsCountdown;
     }
 
     getClientId(): string | null {

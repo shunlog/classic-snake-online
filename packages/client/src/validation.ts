@@ -60,7 +60,8 @@ const CountdownMessageSchema = z.object({
 
 const GameOverMessageSchema = z.object({
     type: z.literal('game_over'),
-    winner: z.string().nullable()
+    winner: z.string().nullable(),
+    countdownSeconds: z.number()
 });
 
 export const ServerMessageSchema = z.discriminatedUnion('type', [

@@ -43,7 +43,7 @@ const ClientMessageSchema = z.discriminatedUnion('type', [
 // Game tick loop
 let tickInterval: NodeJS.Timeout | null = null;
 let countdownInterval: NodeJS.Timeout | null = null;
-let resultsTimeout: NodeJS.Timeout | null = null;
+let resultsCountdownInterval: NodeJS.Timeout | null = null;
 
 function startGameLoop() {
     if (tickInterval) return;
@@ -52,14 +52,10 @@ function startGameLoop() {
         if (server.getStatus() === 'PLAYING') {
             server.tick();
         }
-        // Check if game ended and schedule reset
-        if (server.getStatus() === 'RESULTS_COUNTDOWN' && !resultsTimeout) {
+        // Check if game ended and start results countdown
+        if (server.getStatus() === 'RESULTS_COUNTDOWN' && !resultsCountdownInterval) {
             stopGameLoop();
-            resultsTimeout = setTimeout(() => {
-                server.resetToWaiting();
-                resultsTimeout = null;
-                console.log('Reset to waiting state');
-            }, 3000);
+            startResultsCountdownLoop();
         }
     }, TICK_RATE);
     console.log('Game loop started');
@@ -73,7 +69,29 @@ function stopGameLoop() {
     }
 }
 
-function startCountdownLoop() {
+function startResultsCountdownLoop() {
+    if (resultsCountdownInterval) return;
+    
+    resultsCountdownInterval = setInterval(() => {
+        if (server.getStatus() === 'RESULTS_COUNTDOWN') {
+            server.resultsCountdownTick();
+            if (server.getStatus() === 'WAITING_PLAYERS') {
+                stopResultsCountdownLoop();
+            }
+        } else {
+            stopResultsCountdownLoop();
+        }
+    }, 1000);
+    console.log('Results countdown started');
+}
+
+function stopResultsCountdownLoop() {
+    if (resultsCountdownInterval) {
+        clearInterval(resultsCountdownInterval);
+        resultsCountdownInterval = null;
+        console.log('Results countdown stopped');
+    }
+}function startCountdownLoop() {
     if (countdownInterval) return;
     
     countdownInterval = setInterval(() => {
