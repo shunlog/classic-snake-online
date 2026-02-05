@@ -32,6 +32,7 @@ export class ClientLogic {
 
     // Multiplayer game state (only active during PLAYING)
     private multiplayer: MultiplayerClient<SnakeGameDTO, SnakeInput> | null = null;
+    private opponentState: SnakeGameDTO | null = null;
 
     private checkRep(): void {
         // If playing, multiplayer must exist
@@ -85,6 +86,7 @@ export class ClientLogic {
                 break;
             case 'game_start':
                 this.startGame(message.playerState);
+                this.opponentState = message.opponentState;
                 break;
             case 'tick':
                 if (this.multiplayer) {
@@ -94,6 +96,7 @@ export class ClientLogic {
                         state: message.playerState
                     });
                 }
+                this.opponentState = message.opponentState;
                 break;
             case 'game_over':
                 if (message.winner !== null) {
@@ -102,6 +105,7 @@ export class ClientLogic {
                 this.resultsCountdown = message.countdownSeconds;
                 this.status = 'RESULTS_COUNTDOWN';
                 this.multiplayer = null;
+                this.opponentState = null;
                 break;
         }
         this.checkRep();
@@ -224,5 +228,9 @@ export class ClientLogic {
 
     getClientId(): string | null {
         return this._clientId;
+    }
+
+    getOpponentState(): SnakeGameDTO | null {
+        return this.opponentState;
     }
 }

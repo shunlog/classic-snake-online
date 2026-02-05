@@ -2,7 +2,7 @@ import { ClientLogic, ClientMessage, Direction, SnakeGameDTO, ClientStatus } fro
 import { parseServerMessage } from './validation';
 
 const WS_URL = 'ws://localhost:3000';
-const CELL_SIZE = 20;
+const CELL_SIZE = 15; // Smaller cells for split screen
 const TICK_RATE = 100; // ms per tick
 
 // DOM Elements
@@ -15,12 +15,17 @@ const connectionStatus = document.getElementById('connection-status')!;
 const playersList = document.getElementById('players-list')!;
 const readyBtn = document.getElementById('ready-btn') as HTMLButtonElement;
 const lobbyStatus = document.getElementById('lobby-status')!;
-const scoreEl = document.getElementById('score')!;
 const tickEl = document.getElementById('tick')!;
-const canvas = document.getElementById('game-canvas') as HTMLCanvasElement;
-const ctx = canvas.getContext('2d')!;
 const gameOverlay = document.getElementById('game-overlay')!;
 const overlayText = document.getElementById('overlay-text')!;
+
+// Split screen elements
+const playerCanvas = document.getElementById('player-canvas') as HTMLCanvasElement;
+const opponentCanvas = document.getElementById('opponent-canvas') as HTMLCanvasElement;
+const playerCtx = playerCanvas.getContext('2d')!;
+const opponentCtx = opponentCanvas.getContext('2d')!;
+const playerScoreEl = document.getElementById('player-score')!;
+const opponentScoreEl = document.getElementById('opponent-score')!;
 
 let ws: WebSocket | null = null;
 let clientLogic: ClientLogic | null = null;
@@ -91,11 +96,17 @@ function updateUI() {
     if (status === 'PLAYING') {
         // Hide overlay when playing
         gameOverlay.classList.add('hidden');
-        const state = clientLogic.getGameState();
-        if (state) {
-            scoreEl.textContent = `Score: ${state.score}`;
-            tickEl.textContent = `Tick: ${state.tickCount}`;
-            renderGame(state);
+        const playerState = clientLogic.getGameState();
+        const opponentState = clientLogic.getOpponentState();
+        
+        if (playerState) {
+            playerScoreEl.textContent = `Score: ${playerState.score}`;
+            tickEl.textContent = `Tick: ${playerState.tickCount}`;
+            renderGame(playerCtx, playerState, '#4ecca3');
+        }
+        if (opponentState) {
+            opponentScoreEl.textContent = `Score: ${opponentState.score}`;
+            renderGame(opponentCtx, opponentState, '#e74c3c');
         }
     }
 
@@ -124,8 +135,9 @@ function updateUI() {
     }
 }
 
-function renderGame(state: SnakeGameDTO) {
+function renderGame(ctx: CanvasRenderingContext2D, state: SnakeGameDTO, snakeColor: string) {
     const { gridWidth, gridHeight, snake, food } = state;
+    const canvas = ctx.canvas;
 
     // Clear canvas
     ctx.fillStyle = '#0a0a15';
@@ -162,12 +174,12 @@ function renderGame(state: SnakeGameDTO) {
     // Draw snake
     snake.forEach((segment, index) => {
         if (index === 0) {
-            // Head
-            ctx.fillStyle = '#4ecca3';
+            // Head - use snakeColor
+            ctx.fillStyle = snakeColor;
         } else {
-            // Body gradient
-            const alpha = 1 - (index / snake.length) * 0.5;
-            ctx.fillStyle = `rgba(78, 204, 163, ${alpha})`;
+            // Body gradient - parse snakeColor for alpha effect
+            ctx.fillStyle = snakeColor;
+            ctx.globalAlpha = 1 - (index / snake.length) * 0.5;
         }
         ctx.fillRect(
             segment.x * CELL_SIZE + 1,
@@ -175,6 +187,7 @@ function renderGame(state: SnakeGameDTO) {
             CELL_SIZE - 2,
             CELL_SIZE - 2
         );
+        ctx.globalAlpha = 1;
     });
 }
 

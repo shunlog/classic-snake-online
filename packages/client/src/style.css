@@ -126,34 +126,65 @@ button:disabled {
     border-left: 4px solid #4ecca3;
 }
 
-/* Game Screen */
-.game-header {
+/* Game Screen - Split Screen Layout */
+.split-screen {
     display: flex;
-    justify-content: space-between;
-    width: 400px;
-    padding: 10px 0;
-    font-size: 1.2rem;
+    gap: 20px;
+    position: relative;
 }
 
-#score {
+.game-panel {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.panel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 300px;
+    padding: 8px 0;
+    margin-bottom: 5px;
+}
+
+.panel-title {
+    font-size: 1.2rem;
+    font-weight: bold;
+    color: #fff;
+}
+
+.panel-score {
     color: #4ecca3;
     font-weight: bold;
+    font-size: 1rem;
+}
+
+.game-footer {
+    margin-top: 15px;
+    text-align: center;
 }
 
 #tick {
     color: rgba(255, 255, 255, 0.7);
+    font-size: 1rem;
 }
 
-#game-canvas {
+#player-canvas,
+#opponent-canvas {
     border: 3px solid #4ecca3;
     border-radius: 8px;
     background: #0a0a15;
 }
 
+#opponent-canvas {
+    border-color: #e74c3c;
+}
+
 .game-container {
     position: relative;
-    width: 400px;
-    height: 400px;
+    width: 300px;
+    height: 300px;
 }
 
 .game-overlay {
@@ -165,7 +196,7 @@ button:disabled {
     display: flex;
     justify-content: center;
     align-items: center;
-    background: rgba(0, 0, 0, 0.7);
+    background: rgba(0, 0, 0, 0.8);
     border-radius: 8px;
     z-index: 10;
 }
@@ -175,7 +206,7 @@ button:disabled {
 }
 
 #overlay-text {
-    font-size: 3rem;
+    font-size: 2.5rem;
     font-weight: bold;
     text-align: center;
     text-shadow: 2px 2px 8px rgba(0, 0, 0, 0.8);
