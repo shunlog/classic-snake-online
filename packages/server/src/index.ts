@@ -3,7 +3,7 @@ import { ServerLogic, ClientID, generateClientID, ServerMessage } from '@snake/s
 import { z } from 'zod';
 
 const PORT = 3000;
-const TICK_RATE = 100; // ms per tick
+const TICK_RATE = 200; // ms per tick
 
 const connections = new Map<ClientID, WebSocket>();
 

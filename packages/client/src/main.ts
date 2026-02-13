@@ -3,7 +3,7 @@ import { parseServerMessage } from './validation';
 
 const WS_URL = 'ws://localhost:3000';
 const CELL_SIZE = 15; // Smaller cells for split screen
-const TICK_RATE = 100; // ms per tick
+const TICK_RATE = 200; // ms per tick
 
 // DOM Elements
 const joinScreen = document.getElementById('join-screen')!;
